@@ -1,9 +1,18 @@
-# todo: search partition for all S1, s2 raw data regularly, get paths, store into database and check if some went missing
+# search partition for all S1, s2 raw data regularly,
+# get paths, store into database and check if some went missing
+import os
+from spatialist.ancillary import finder
+from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 
 
+# start or stop postgresql server
+subprocess('pg_ctl -D /opt/homebrew/var/postgres start')
+
+user = 'zehma'
+password = os.getenv('sentinelsat_API_KEY')
 # find all s2l1c on one partition:
 
-from spatialist.ancillary import finder
+
 
 scenes_s2 = finder('/geonfs03_vol1/', ['^S2[AB]_MSI.*.zip$'], regex=True, recursive=True)
 
@@ -20,7 +29,7 @@ with open("/geonfs03_vol1/THURINGIA/s2_scenes_on_geonfs03_vol1_2022_01_07.txt", 
 
 
 # dl from copernicushub via sentinelsat
-from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
+
 
 api = SentinelAPI(user, password, 'https://apihub.copernicus.eu/apihub')
 footprint = geojson_to_wkt(read_geojson('/Users/markuszehner/Documents/hainich/Hainich_bbox_wgs84_simple.geojson'))
@@ -29,3 +38,4 @@ products = api.query(footprint,
                      platformname = 'Sentinel-2',
                      cloudcoverpercentage = (0, 30))
 api.download_all(products, directory_path=directory_path)
+
