@@ -60,5 +60,6 @@ setup(
                       'requests==2.22',
                       'shapely',
                       'sentinelsat',
+                      'pyrosar',
                       'spatialist']
 )
