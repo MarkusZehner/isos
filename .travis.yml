@@ -1,0 +1,59 @@
+# taken from pyroSAR
+dist: bionic
+language: python
+sudo: required
+cache:
+  directories:
+    - ~/.cache/pip
+
+env:
+  global:
+    - PIP_WHEEL_DIR=$HOME/.cache/pip/wheels
+    - PIP_FIND_LINKS=file://$HOME/.cache/pip/wheels
+#    - TESTDATA_DIR=$HOME/testdata
+    - PGUSER=postgres
+    - PGPORT=5432
+    - PGPASSWORD=1234
+
+addons:
+  postgresql: 14
+  apt:
+    sources:
+      - sourceline: 'ppa:ubuntugis/ppa'
+    packages:
+      - libgdal-dev
+      - gdal-bin
+      - libproj-dev
+      - python3-dev
+      - postgresql-14-postgis-3.2
+
+services:
+  - postgresql
+
+python:
+  - '3.9'
+
+#before_install:
+#  - wget -O esa-snap_sentinel_unix_7_0.sh https://step.esa.int/downloads/7.0/installers/esa-snap_sentinel_unix_7_0.sh
+#  - bash esa-snap_sentinel_unix_7_0.sh -q
+#  - export PATH=$PATH:/opt/snap/bin
+
+install:
+#  - pip install --ignore-installed six # install six inside the venv since the system version is too old
+  - pip install numpy
+  - pip install GDAL==$(gdal-config --version) --global-option=build_ext --global-option="$(gdal-config --cflags)"
+  - pip install -r requirements-dev.txt
+  - pip install coveralls coverage
+  - python setup.py install
+
+#before_script:
+#  - travis_wait 40 . ./pyroSAR/install/download_testdata.sh
+
+before_script:
+  - psql -c 'create database travis_ci_test;' -U postgres
+
+script:
+  - coverage run --source rcm_archive/ -m pytest
+
+after_success:
+  - coveralls

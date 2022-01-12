@@ -15,74 +15,74 @@ from geoalchemy2 import Geometry
 Base = declarative_base()
 
 
-class Sentinel2Meta(Base):
-    """
-    Template for the Sentinel2Meta Table to record metadata for query checks
-    """
-    __tablename__ = 'sentinel2meta'
-
-    id = Column(String, primary_key=True)  # ': '8a7e6f5b-d53b-40f9-a215-afce648eae65',
-    title = Column(String)  # ': 'S2A_MSIL1C_20151228T100422_N0201_R122_T33UUQ_20151228T100420',
-    size = Column(Integer)  # ': 101067588,
-    md5 = Column(String)  # ': '412C32698318AFC6F46D53DA18967365',
-    date = Column(DateTime)  # ': datetime.datetime(2015, 12, 28, 10, 4, 22,29000),
-    footprint = Column(Geometry('POLYGON', management=True,
-                                srid=4326))  # ': 'POLYGON((12.23093206 49.61959688,12.28537105 48.63303182,13.77513104 48.65851892,13.7505374 49.64598097,12.23093206 49.61959688,12.23093206 49.61959688))',
-    url = Column(
-        String)  # ': "https://scihub.copernicus.eu/apihub/odata/v1/Products('8a7e6f5b-d53b-40f9-a215-afce648eae65')/$value",
-    online = Column(Boolean)  # ': False,
-    creation_date = Column(DateTime)  # ': datetime.datetime(2018, 12, 20, 18, 59, 43, 165000),
-    ingestion_date = Column(DateTime)  # ': datetime.datetime(2018, 12, 20, 0, 39, 11, 379000)
-    aot_retrieval_accuracy = Column(Float)  # 0.0)
-    cloud_cover_percentage = Column(Float)  # 98.878347)
-    cloud_shadow_percentage = Column(Float)  # 0.0)
-    dark_features_percentage = Column(Float)  # 0.023467)
-    datatake_sensing_start = Column(DateTime)
-    degraded_ancillary_data_percentage = Column(Float)  # 0.0)
-    degraded_msi_data_percentage = Column(Float)  # 0)
-    filename = Column(String)  # 'S2A_MSIL2A_20200109T101401_N0213_R022_T33UUR_20200109T114354.SAFE')
-    format = Column(String)  # 'SAFE')
-    format_correctness = Column(String)  # 'PASSED')
-    general_quality = Column(String)  # 'PASSED')
-    generation_time = Column(DateTime)  # datetime.datetime(2020, 1, 9, 11, 43, 54))
-    geometric_quality = Column(String)  # 'PASSED')
-    high_proba_clouds_percentage = Column(Float)  # 13.026819)
-    identifier = Column(String)  # 'S2A_MSIL2A_20200109T101401_N0213_R022_T33UUR_20200109T114354')
-    instrument = Column(String)  # 'MSI')
-    instrument_abbreviation = Column(String)  # 'MSI')
-    instrument_mode = Column(String)
-    instrument_name = Column(String)  # 'Multi-Spectral Instrument')
-    jts_footprint = Column(Geometry('MULTIPOLYGON', management=True,
-                                    srid=4326))  # 'MULTIPOLYGON (((12.235902710246984 49.53173120782476, 13.752783043838743 49.558033952412664, 13.726924416029938 50.545333158635955, 12.178667516417683 50.51810003852152, 12.235902710246984 49.53173120782476)))')
-    medium_proba_clouds_percentage = Column(Float)  # 83.750689)
-    mission_datatake_id = Column(String)  # 'GS2A_20200109T101401_023757_N02.13')
-    no_data_pixel_percentage = Column(Float)  # 0.0)
-    not_vegetated_percentage = Column(Float)  # 0.000531)
-    nssdc_identifier = Column(String)  # '2015-028A')
-    orbit_number_start = Column(Integer)  # 23757)
-    pass_direction = Column(String)  # 'DESCENDING')
-    platform_serial_identifier = Column(String)  # 'Sentinel-2A')
-    processing_baseline = Column(Float)  # 2.13)
-    processing_level = Column(String)  # 'Level-2A')
-    product_type = Column(String)  # 'S2MSI2A')
-    radiometric_quality = Column(String)  # 'PASSED')
-    relative_orbit_start = Column(Integer)  # 22)
-    satellite = Column(String)  # 'Sentinel-2')
-    satellite_name = Column(String)  # 'Sentinel-2')
-    satellite_number = Column(String)  # 'A')
-    saturated_defective_pixel_percentage = Column(Float)  # 0.0)
-    sensing_start = Column(DateTime)  # datetime.datetime(2020, 1, 9, 10, 14, 1, 24000))
-    sensing_stop = Column(DateTime)  # datetime.datetime(2020, 1, 9, 10, 14, 1, 24000))
-    sensor_quality = Column(String)  # 'PASSED')
-    snow_ice_percentage = Column(Float)  # 1.072588)
-    thin_cirrus_percentage = Column(Float)  # 2.100839)
-    tile_identifier = Column(String)
-    tile_identifier_horizontal_order = Column(String)
-    unclassified_percentage = Column(Float)  # 0.024874000000000004)
-    vegetation_percentage = Column(Float)  # 0.0)
-    water_percentage = Column(Float)  # 0.000192)
-    water_vapour_retrieval_accuracy = Column(Float)  # 0.0)
-    level_1c_pdi_identifier = Column(String)  # 'S2A_OPER_MSI_L1C_TL_MTI__20200109T104556_A023757_T33UUR_N02.08')
+# class Sentinel2Meta(Base):
+#     """
+#     Template for the Sentinel2Meta Table to record metadata for query checks
+#     """
+#     __tablename__ = 'sentinel2meta'
+#
+#     id = Column(String, primary_key=True)  # ': '8a7e6f5b-d53b-40f9-a215-afce648eae65',
+#     title = Column(String)  # ': 'S2A_MSIL1C_20151228T100422_N0201_R122_T33UUQ_20151228T100420',
+#     size = Column(Integer)  # ': 101067588,
+#     md5 = Column(String)  # ': '412C32698318AFC6F46D53DA18967365',
+#     date = Column(DateTime)  # ': datetime.datetime(2015, 12, 28, 10, 4, 22,29000),
+#     footprint = Column(Geometry('POLYGON', management=True,
+#                                 srid=4326))  # ': 'POLYGON((12.23093206 49.61959688,12.28537105 48.63303182,13.77513104 48.65851892,13.7505374 49.64598097,12.23093206 49.61959688,12.23093206 49.61959688))',
+#     url = Column(
+#         String)  # ': "https://scihub.copernicus.eu/apihub/odata/v1/Products('8a7e6f5b-d53b-40f9-a215-afce648eae65')/$value",
+#     online = Column(Boolean)  # ': False,
+#     creation_date = Column(DateTime)  # ': datetime.datetime(2018, 12, 20, 18, 59, 43, 165000),
+#     ingestion_date = Column(DateTime)  # ': datetime.datetime(2018, 12, 20, 0, 39, 11, 379000)
+#     aot_retrieval_accuracy = Column(Float)  # 0.0)
+#     cloud_cover_percentage = Column(Float)  # 98.878347)
+#     cloud_shadow_percentage = Column(Float)  # 0.0)
+#     dark_features_percentage = Column(Float)  # 0.023467)
+#     datatake_sensing_start = Column(DateTime)
+#     degraded_ancillary_data_percentage = Column(Float)  # 0.0)
+#     degraded_msi_data_percentage = Column(Float)  # 0)
+#     filename = Column(String)  # 'S2A_MSIL2A_20200109T101401_N0213_R022_T33UUR_20200109T114354.SAFE')
+#     format = Column(String)  # 'SAFE')
+#     format_correctness = Column(String)  # 'PASSED')
+#     general_quality = Column(String)  # 'PASSED')
+#     generation_time = Column(DateTime)  # datetime.datetime(2020, 1, 9, 11, 43, 54))
+#     geometric_quality = Column(String)  # 'PASSED')
+#     high_proba_clouds_percentage = Column(Float)  # 13.026819)
+#     identifier = Column(String)  # 'S2A_MSIL2A_20200109T101401_N0213_R022_T33UUR_20200109T114354')
+#     instrument = Column(String)  # 'MSI')
+#     instrument_abbreviation = Column(String)  # 'MSI')
+#     instrument_mode = Column(String)
+#     instrument_name = Column(String)  # 'Multi-Spectral Instrument')
+#     jts_footprint = Column(Geometry('MULTIPOLYGON', management=True,
+#                                     srid=4326))  # 'MULTIPOLYGON (((12.235902710246984 49.53173120782476, 13.752783043838743 49.558033952412664, 13.726924416029938 50.545333158635955, 12.178667516417683 50.51810003852152, 12.235902710246984 49.53173120782476)))')
+#     medium_proba_clouds_percentage = Column(Float)  # 83.750689)
+#     mission_datatake_id = Column(String)  # 'GS2A_20200109T101401_023757_N02.13')
+#     no_data_pixel_percentage = Column(Float)  # 0.0)
+#     not_vegetated_percentage = Column(Float)  # 0.000531)
+#     nssdc_identifier = Column(String)  # '2015-028A')
+#     orbit_number_start = Column(Integer)  # 23757)
+#     pass_direction = Column(String)  # 'DESCENDING')
+#     platform_serial_identifier = Column(String)  # 'Sentinel-2A')
+#     processing_baseline = Column(Float)  # 2.13)
+#     processing_level = Column(String)  # 'Level-2A')
+#     product_type = Column(String)  # 'S2MSI2A')
+#     radiometric_quality = Column(String)  # 'PASSED')
+#     relative_orbit_start = Column(Integer)  # 22)
+#     satellite = Column(String)  # 'Sentinel-2')
+#     satellite_name = Column(String)  # 'Sentinel-2')
+#     satellite_number = Column(String)  # 'A')
+#     saturated_defective_pixel_percentage = Column(Float)  # 0.0)
+#     sensing_start = Column(DateTime)  # datetime.datetime(2020, 1, 9, 10, 14, 1, 24000))
+#     sensing_stop = Column(DateTime)  # datetime.datetime(2020, 1, 9, 10, 14, 1, 24000))
+#     sensor_quality = Column(String)  # 'PASSED')
+#     snow_ice_percentage = Column(Float)  # 1.072588)
+#     thin_cirrus_percentage = Column(Float)  # 2.100839)
+#     tile_identifier = Column(String)
+#     tile_identifier_horizontal_order = Column(String)
+#     unclassified_percentage = Column(Float)  # 0.024874000000000004)
+#     vegetation_percentage = Column(Float)  # 0.0)
+#     water_percentage = Column(Float)  # 0.000192)
+#     water_vapour_retrieval_accuracy = Column(Float)  # 0.0)
+#     level_1c_pdi_identifier = Column(String)  # 'S2A_OPER_MSI_L1C_TL_MTI__20200109T104556_A023757_T33UUR_N02.08')
 
 
 class Sentinel2Data(Base):
@@ -168,3 +168,14 @@ class Sentinel1Data(Base):
     hv = Column(Integer)
     vh = Column(Integer)
     bbox = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
+    geometry = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
+
+
+class Duplicates(Base):
+    """
+    Template for the Sentinel1Data Table to record metadata of downloaded SAR imagery
+    """
+    __tablename__ = 'duplicates'
+
+    sensor = Column(String)
+    outname_base = Column(String, primary_key=True)

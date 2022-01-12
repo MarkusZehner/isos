@@ -14,12 +14,6 @@ password = os.getenv('sentinelsat_API_KEY')
 
 
 
-scenes_s2 = finder('/geonfs03_vol1/', ['^S2[AB]_MSI.*.zip$'], regex=True, recursive=True)
-
-print(scenes_s2)
-
-with open("/geonfs03_vol1/THURINGIA/s2_scenes_on_geonfs03_vol1_2022_01_07.txt", "w") as output:
-    output.write(str(scenes_s2))
 
 
 
