@@ -60,6 +60,5 @@ setup(
                       'requests==2.22',
                       'shapely',
                       'sentinelsat',
-                      'spatialist',
-                      'gdal']
+                      'spatialist']
 )

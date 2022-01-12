@@ -7,7 +7,6 @@ sentinelsat~=1.1.1
 shapely
 sentinelsat
 requests
-gdal
 #Testing requirements
 pytest
 

@@ -6,4 +6,4 @@ install via
 
     $ pip install git+https://github.com/MarkusZehner/isos.git
 
-
+Also install gdal...
