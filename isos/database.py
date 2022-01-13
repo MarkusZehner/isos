@@ -43,7 +43,7 @@ log = logging.getLogger(__name__)
 
 class Database(object):
     """
-    Utility for storing SAR image metadata in a database
+    Utility for storing image metadata in a database
     Parameters
     ----------
     dbname: str
