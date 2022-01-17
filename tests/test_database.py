@@ -30,7 +30,11 @@ def test_archive(tmpdir, testdata):
     id = identify(testdata['s1'])
     db = isos.Database('test_isos_2', port=pgport, user='markuszehner', password=pgpassword)
     db.ingest_s2_from_id(testdata['s2'])
+    print(id.outname_base())
+    db.ingest_s1_from_id(testdata['s1'])
     assert db.is_registered(testdata['s2'], 'sentinel2data') is True
+    assert db.is_registered(testdata['s1'], 'sentinel1data') is True
+
 
     # assert all(isinstance(x, str) for x in db.get_tablenames())
     # assert all(isinstance(x, str) for x in db.get_colnames())

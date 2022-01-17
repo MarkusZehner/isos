@@ -393,10 +393,11 @@ class Database(object):
             is the scene already registered?
         """
         try:
+            # not nice, try to determine s1 or s2 by name!
             id = scene if isinstance(scene, ID) else identify(scene)
+            id = self.parse_id(id)[0]
         except RuntimeError:
             id = self.identify_sentinel2_from_folder(scene)[0]
-            print(id)
 
         self.__check_table_exists(table)
         table_schema = self.load_table(table)
@@ -1109,15 +1110,65 @@ class Database(object):
 
         Returns
         -------
-
         """
         orderly_data = self.identify_sentinel2_from_folder(scene_dirs)
 
-        # todo check if footprint has correct projection
         self.insert(table='sentinel2data', primary_key=self.get_primary_keys('sentinel2data'),
                     orderly_data=orderly_data, verbose=verbose, update=update)
 
-        # os.environ.['CPL_ZIP_ENCODING'] = tmp  # does not work somehow
+    def parse_id(self, scenes):
+        """
+        Helper method to refactor Sentinel-1 id objects, make keys lower, replace ' ' by '_',
+        make values the right unit types.
+        ----------
+        metadata_as_list_of_dicts: list of [pyroSAR.ID]
+            s1 id objects
+        Returns
+        -------
+        list of dict
+            reformatted data
+        """
+        table_schema_cols = self.load_table('sentinel1data').c
+        coltypes = {}
+        for i in table_schema_cols:
+            coltypes[i.name] = i.type
+
+        orderly_data = []
+
+        if not isinstance(scenes, list):
+            scenes = [scenes]
+
+        for scene in scenes:
+            id = scene if isinstance(scene, ID) else identify(scene)
+            pols = [x.lower() for x in id.polarizations]
+
+            temp_dict = {}
+            for attribute in list(coltypes.keys()):
+                if attribute == 'outname_base':
+                    temp_dict[attribute] = id.outname_base()
+                elif attribute in ['bbox', 'geometry']:
+                    geom = getattr(id, attribute)()
+                    geom.reproject(4326)
+                    geom = geom.convert2wkt(set3D=False)[0]
+                    temp_dict[attribute] = 'SRID=4326;' + str(geom)
+                elif attribute in ['hh', 'vv', 'hv', 'vh']:
+                    temp_dict[attribute] = int(attribute in pols)
+                else:
+                    if hasattr(id, attribute):
+                        temp_dict[attribute] = getattr(id, attribute)
+                    elif attribute in id.meta.keys():
+                        temp_dict[attribute] = id.meta[attribute]
+                    else:
+                        raise AttributeError('could not find attribute {}'.format(attribute))
+            orderly_data.append(temp_dict)
+        return orderly_data
+
+    def ingest_s1_from_id(self, scene_dirs, update=False, verbose=False):
+
+        orderly_data = self.parse_id(scene_dirs)
+
+        self.insert(table='sentinel1data', primary_key=self.get_primary_keys('sentinel1data'),
+                    orderly_data=orderly_data, verbose=verbose, update=update)
 
     def __refactor_sentinel2data(self, metadata_as_list_of_dicts):
         """
@@ -1136,7 +1187,6 @@ class Database(object):
         coltypes = {}
         for i in table_schema_cols:
             coltypes[i.name] = i.type
-            print(i.name, i.type)
 
         orderly_data = []
         for entry in metadata_as_list_of_dicts:
@@ -1153,7 +1203,6 @@ class Database(object):
                     if value != '' and value:
                         temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
                 if str(coltypes.get(key)) in ['geometry(POLYGON,4326)']:
-                    print('numeric coltype found')
                     temp_dict[key] = WKTElement(value, srid=4326)
 
             temp_dict['outname_base'] = entry[0]

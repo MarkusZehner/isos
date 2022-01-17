@@ -151,26 +151,25 @@ class Sentinel1Data(Base):
     __tablename__ = 'sentinel1data'
 
     sensor = Column(String)
-    # orbit = Column(String)
-    # orbitNumber_abs = Column(Integer)
-    # orbitNumber_rel = Column(Integer)
-    # cycleNumber = Column(Integer)
-    # frameNumber = Column(Integer)
-    # acquisition_mode = Column(String)
-    # start = Column(String)
-    # stop = Column(String)
-    # product = Column(String)
-    # samples = Column(Integer)
-    # lines = Column(Integer)
+    orbit = Column(String)
+    orbitNumber_abs = Column(Integer)
+    orbitNumber_rel = Column(Integer)
+    cycleNumber = Column(Integer)
+    frameNumber = Column(Integer)
+    acquisition_mode = Column(String)
+    start = Column(String)
+    stop = Column(String)
+    product = Column(String)
+    samples = Column(Integer)
+    lines = Column(Integer)
     outname_base = Column(String, primary_key=True)
     scene = Column(String)
-    # hh = Column(Integer)
-    # vv = Column(Integer)
-    # hv = Column(Integer)
-    # vh = Column(Integer)
-    # bbox = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
+    hh = Column(Integer)
+    vv = Column(Integer)
+    hv = Column(Integer)
+    vh = Column(Integer)
+    bbox = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
     geometry = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
-    dirpath = Column(String)  # isos storage path
 
 
 class Duplicates(Base):
@@ -183,4 +182,4 @@ class Duplicates(Base):
     scene = Column(String)
     outname_base = Column(String, primary_key=True)
     geometry = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
-    dirpath = Column(String)  # isos storage path
+
