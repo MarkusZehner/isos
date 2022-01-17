@@ -6,10 +6,10 @@ from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 
 
 # start or stop postgresql server
-subprocess('pg_ctl -D /opt/homebrew/var/postgres start')
+#subprocess('pg_ctl -D /opt/homebrew/var/postgres start')
 
-user = 'zehma'
-password = os.getenv('sentinelsat_API_KEY')
+#user = 'zehma'
+#password = os.getenv('sentinelsat_API_KEY')
 # find all s2l1c on one partition:
 
 
@@ -25,11 +25,11 @@ password = os.getenv('sentinelsat_API_KEY')
 # dl from copernicushub via sentinelsat
 
 
-api = SentinelAPI(user, password, 'https://apihub.copernicus.eu/apihub')
-footprint = geojson_to_wkt(read_geojson('/Users/markuszehner/Documents/hainich/Hainich_bbox_wgs84_simple.geojson'))
-products = api.query(footprint,
-                     date = ('20151219', '20151229'),
-                     platformname = 'Sentinel-2',
-                     cloudcoverpercentage = (0, 30))
-api.download_all(products, directory_path=directory_path)
+#api = SentinelAPI(user, password, 'https://apihub.copernicus.eu/apihub')
+#footprint = geojson_to_wkt(read_geojson('/Users/markuszehner/Documents/hainich/Hainich_bbox_wgs84_simple.geojson'))
+#products = api.query(footprint,
+#                     date = ('20151219', '20151229'),
+#                     platformname = 'Sentinel-2',
+#                     cloudcoverpercentage = (0, 30))
+#api.download_all(products, directory_path=directory_path)
 
