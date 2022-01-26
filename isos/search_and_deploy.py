@@ -1,8 +1,8 @@
 # search partition for all S1, s2 raw data regularly,
 # get paths, store into database and check if some went missing
-import os
-from spatialist.ancillary import finder
-from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
+#import os
+#from spatialist.ancillary import finder
+#from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 
 
 # start or stop postgresql server
@@ -14,8 +14,62 @@ from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 
 
 
+# crontab every second day:
+# 0 0 2-30/2 * * /pathtopythonenv /command
+import sys
+import os
+
+from spatialist.ancillary import finder
+from isos import Database
+# from datetime import datetime
+# import os
 
 
+def main(directory, user=False):
+
+    pguser = os.environ.get('PGUSER')
+    pgpassword = os.environ.get('PGPASSWORD')
+    pgport = os.environ.get('PGPORT')
+
+    scenes_s1 = finder(directory, [r'^S1[AB].*\.zip'], recursive=True, regex=True)
+    scenes_s2 = finder(directory, [r'^S2[AB].*\.zip'], recursive=True, regex=True)
+
+    with Database('test_isos', user=pguser, password=pgpassword) as db:
+        db.ingest_s1_from_id(scenes_s1)
+        db.ingest_s2_from_id(scenes_s2)
+        count1 = db.count_scenes('sentinel1data')
+        print(count1)
+        count2 = db.count_scenes('sentinel2data')
+        print(count2)
+
+
+
+
+#
+#
+#
+# def write_file(filename, data):
+#     if os.path.isfile(filename):
+#         with open(filename, 'a') as f:
+#             f.write('\n' + data)
+#     else:
+#         with open(filename, 'w') as f:
+#             f.write(data)
+#
+#
+# def print_time():
+#     now = datetime.now()
+#     current_time = now.strftime("%H:%M:%S")
+#     data = "Current Time = " + current_time
+#     return data
+#
+#
+# write_file('test.txt', print_time())
+
+if __name__ == "__main__":
+    directory = sys.argv[1]
+    print(directory)
+    main(directory)
 
 # optimally use extent to see where the data is, to be searchable by sensor, metadata and area
 

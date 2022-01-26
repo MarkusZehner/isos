@@ -27,11 +27,11 @@ def test_archive(tmpdir, testdata, testdir):
     else:
         pgport = 5432
 
-    with isos.Database('test_isos6', port=pgport, user='markuszehner', password=pgpassword) as db:
+    with isos.Database('test_isos', port=pgport, user='markuszehner', password=pgpassword) as db:
         isos.drop_archive(db)
 
     id = identify(testdata['s1'])
-    with isos.Database('test_isos6', port=pgport, user='markuszehner', password=pgpassword) as db:
+    with isos.Database('test_isos', port=pgport, user='markuszehner', password=pgpassword) as db:
 
         assert db._Database__is_open('localhost', 5432) is True  # checked in init
         assert db._Database__check_host('localhost', 5432) is True  # checked in init
@@ -41,7 +41,7 @@ def test_archive(tmpdir, testdata, testdir):
                'S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.SAFE'
         # __refactor_sentinel2data # checked in identify_sentinel2_from_folder
         assert isinstance(db.parse_id(testdata['s1']), list)
-        #print(db.parse_id(testdata['s1']))
+
         # ingest data
         db.ingest_s2_from_id(testdata['s2'])
         db.ingest_s1_from_id(testdata['s1'])
@@ -88,6 +88,8 @@ def test_archive(tmpdir, testdata, testdir):
         assert db.count_scenes('sentinel2data') == \
                [('S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.zip', 2)]
 
+    with isos.Database('test_isos', port=pgport, user='markuszehner', password=pgpassword) as db:
+        isos.drop_archive(db)
 
     #     db.__prepare_update()
     #     db.insert  # checked in ingest_s2_from_id and ingest_s1_from_id
