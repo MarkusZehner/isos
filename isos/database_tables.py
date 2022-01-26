@@ -91,8 +91,8 @@ class Sentinel2Data(Base):
     """
     __tablename__ = 'sentinel2data'
 
-    outname_base = Column(String, primary_key=True)
-    scene = Column(String)
+    outname_base = Column(String)
+    scene = Column(String, primary_key=True)
     aot_quantification_value = Column(Float)  # 1000.0
     aot_quantification_value_unit = Column(String)  # none
     aot_retrieval_accuracy = Column(Float)  # 0.0
@@ -162,8 +162,8 @@ class Sentinel1Data(Base):
     product = Column(String)
     samples = Column(Integer)
     lines = Column(Integer)
-    outname_base = Column(String, primary_key=True)
-    scene = Column(String)
+    outname_base = Column(String)
+    scene = Column(String, primary_key=True)
     hh = Column(Integer)
     vv = Column(Integer)
     hv = Column(Integer)
@@ -174,12 +174,10 @@ class Sentinel1Data(Base):
 
 class Duplicates(Base):
     """
-    Template for the Sentinel1Data Table to record metadata of downloaded SAR imagery
+    should stay empty because of the complete path as primary key!
     """
     __tablename__ = 'duplicates'
 
-    sensor = Column(String)
-    scene = Column(String)
-    outname_base = Column(String, primary_key=True)
-    geometry = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
+    scene = Column(String, primary_key=True)
+    outname_base = Column(String)
 

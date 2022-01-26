@@ -139,6 +139,7 @@ class Database(object):
 
     def load_table(self, tablename):
         """
+        helper function
         load a table per `sqlalchemy.Table`
         """
         return Table(tablename.lower(), self.meta, autoload=True, autoload_with=self.engine)
@@ -266,12 +267,24 @@ class Database(object):
 
         self.__check_table_exists(table)
         table_schema = self.load_table(table)
+        col_names = self.get_colnames(table)
+
+        # if table == 'duplicates':
+        #     print(table)
+        #     print(col_names)
+        #     print(list(orderly_data[0].keys()))
+        #     print(set(col_names) == set(orderly_data[0].keys()))
+
+        reduce_entry = True if not set(col_names) == set(orderly_data[0].keys()) else False
+
         session = self.Session()
         rejected = []
 
         tableobj = self.Base.classes[table]
 
         for entry in orderly_data:
+            if reduce_entry:
+                entry = {key: entry[key] for key in col_names}
             if update:
                 self.conn.execute(self.__prepare_update(table, primary_key, **entry))
             else:
@@ -291,6 +304,10 @@ class Database(object):
             if verbose:
                 print('Rejected entries with already existing primary key: ', rejected)
             message += ', rejected {} (already existing).'.format(len(rejected))
+            if not table == 'duplicates':
+                self.insert('duplicates', self.get_primary_keys('duplicates'), rejected)
+            else:
+                print('Rejected entries to Duplicates with already existing primary key: ', rejected)
         print(message)
         session.close()
 
@@ -939,7 +956,7 @@ class Database(object):
         num = 0
         for table in tables:
             table_schema = self.load_table(table)
-            r1 = session.query(table_schema.c.dir_path).count()
+            r1 = session.query(table_schema.c.scene).count()
             num += r1
         session.close()
         return len(tables), num
@@ -974,10 +991,11 @@ class Database(object):
         """
         # save outname_base from to be deleted entry
         table_schema = self.load_table(table)
-        search = table_schema.select().where(table_schema.c.scene == scene)
-        entry_data_outname_base = []
-        for rowproxy in self.conn.execute(search):
-            entry_data_outname_base.append((rowproxy[12]))
+        # search = table_schema.select().where(table_schema.c.scene == scene)
+        # entry_data_outname_base = []
+        # for rowproxy in self.conn.execute(search):
+        #     print(rowproxy)
+        #     entry_data_outname_base.append((rowproxy[12]))
         # log.info(entry_data_outname_base)
 
         # delete entry in data table
@@ -1000,10 +1018,14 @@ class Database(object):
         if table in self.get_tablenames(return_all=True):
             # this removes the idx tables and entries in geometry_columns for sqlite databases
             table_schema = self.load_table(table)
+
             table_schema.drop(self.engine)
+            # table_new = self.meta.tables.get(table)
+            # self.Base.metadata.drop_all(bind=self.engine, tables=[table_new])
             log.info('table {} dropped from database.'.format(table_schema))
         else:
             raise ValueError("table {} is not registered in the database!".format(table))
+        self.meta = MetaData(self.engine)
         self.Base = automap_base(metadata=self.meta)
         self.Base.prepare(self.engine, reflect=True)
 
@@ -1064,12 +1086,13 @@ class Database(object):
 
         Parameters
         ----------
-        scene_dirs: str
+        scene_dirs: str or list of str
             list of Sentinel-2 zip paths
 
         Returns
         -------
-
+        list of dict
+            orderly data from __refactor_sentinel2data
         """
         metadata = []
         tmp = os.environ.get('CPL_ZIP_ENCODING')
@@ -1084,7 +1107,7 @@ class Database(object):
                 xml_file = gdal.Open(
                     '/vsizip/' + os.path.join(filename, name_dot_safe, 'MTD_MSIL2A.xml'))
 
-            elif name_dot_safe[4:10] == 'MSIL1C':  # todo check if this actually works with L1C
+            elif name_dot_safe[4:10] == 'MSIL1C':
                 xml_file = gdal.Open(
                     '/vsizip/' + os.path.join(filename, name_dot_safe, 'MTD_MSIL1C.xml'))
             # this way we can open most raster formats and read metadata this way, just adjust the ifs..
@@ -1205,10 +1228,30 @@ class Database(object):
                 if str(coltypes.get(key)) in ['geometry(POLYGON,4326)']:
                     temp_dict[key] = WKTElement(value, srid=4326)
 
-            temp_dict['outname_base'] = entry[0]
+            temp_dict['outname_base'] = os.path.basename(entry[0])
             temp_dict['scene'] = entry[0]
             orderly_data.append(temp_dict)
         return orderly_data
+
+    def count_scenes(self, table):
+        """
+        returns basename and count of ingested scenes from the requested table if count > 1
+
+        Parameters
+        ----------
+        table: str
+            table name
+        Returns
+        -------
+        """
+        if not self.__check_table_exists(table):
+            print(f'table {table} not in database')
+        else:
+            table_schema = self.load_table(table)
+            session = self.Session()
+            ret = session.query(table_schema.c.outname_base, func.count(table_schema.c.outname_base)).\
+                group_by(table_schema.c.outname_base).all()
+            return ret
 
 
 def drop_archive(database):

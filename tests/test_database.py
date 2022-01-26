@@ -18,7 +18,7 @@ mytable = Table('mytable', metadata,
                 Column('shape', Geometry('POLYGON', management=True, srid=4326)))
 
 
-def test_archive(tmpdir, testdata):
+def test_archive(tmpdir, testdata, testdir):
     pguser = os.environ.get('PGUSER')
     pgpassword = os.environ.get('PGPASSWORD')
     pgport = os.environ.get('PGPORT')
@@ -27,39 +27,77 @@ def test_archive(tmpdir, testdata):
     else:
         pgport = 5432
 
+    with isos.Database('test_isos6', port=pgport, user='markuszehner', password=pgpassword) as db:
+        isos.drop_archive(db)
+
     id = identify(testdata['s1'])
-    db = isos.Database('test_isos_2', port=pgport, user='markuszehner', password=pgpassword)
-    db.ingest_s2_from_id(testdata['s2'])
-    print(id.outname_base())
-    db.ingest_s1_from_id(testdata['s1'])
-    assert db.is_registered(testdata['s2'], 'sentinel2data') is True
-    assert db.is_registered(testdata['s1'], 'sentinel1data') is True
+    with isos.Database('test_isos6', port=pgport, user='markuszehner', password=pgpassword) as db:
+
+        assert db._Database__is_open('localhost', 5432) is True  # checked in init
+        assert db._Database__check_host('localhost', 5432) is True  # checked in init
+
+        # assert db.load_table('duplicates') # how to check this?
+        assert db.identify_sentinel2_from_folder([testdata['s2']])[0]['product_uri'] == \
+               'S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.SAFE'
+        # __refactor_sentinel2data # checked in identify_sentinel2_from_folder
+        assert isinstance(db.parse_id(testdata['s1']), list)
+        #print(db.parse_id(testdata['s1']))
+        # ingest data
+        db.ingest_s2_from_id(testdata['s2'])
+        db.ingest_s1_from_id(testdata['s1'])
+        # check ingests
+        assert db.is_registered(testdata['s2'], 'sentinel2data') is True
+        assert db.is_registered(testdata['s1'], 'sentinel1data') is True
+        # test rejecting doubles, and adding to duplicates
+        db.ingest_s2_from_id(testdata['s2'])
+        db.ingest_s1_from_id(testdata['s1'])
+
+        db.drop_element(testdata['s1'], 'duplicates')
+
+        db.add_tables(mytable)
+        assert db._Database__check_table_exists('mytable') is True
+        assert 'mytable' in db.get_tablenames(return_all=True)
+        db.drop_table('mytable')
+        assert db._Database__check_table_exists('mytable') is False
+        assert db._Database__select_missing('duplicates') == []
+        db.cleanup()
+
+        assert db.get_primary_keys('sentinel2data') == ['scene']
+        assert len(db.get_unique_directories('sentinel2data')) == 1
+
+        assert len(db.filter_scenelist([testdata['s2'], testdata['s2_2']], 'sentinel2data')) == 1
+        db.drop_element(testdata['s2'], 'sentinel2data')
+        assert len(db.filter_scenelist([testdata['s2'], testdata['s2_2']], 'sentinel2data')) == 2
+
+        assert db.get_colnames('duplicates') == ['outname_base', 'scene']
+
+        assert db.size == (3, 2)  # 3 tables with combined 2 scenes ingested
+        db.ingest_s2_from_id(testdata['s2'])
+
+        assert db.query_db('sentinel2data', ['processing_level'], product_type='S2MSI2A') == \
+               [{'processing_level': 'Level-2A'}]
+
+        assert db.query_db('sentinel2data', ['product_type'], processing_level='Level-2A') == \
+               [{'product_type': 'S2MSI2A'}]
+
+        #print(db.query_db('sentinel1data', ['scene'], orbit='A'))
+        assert db.query_db('sentinel1data', ['sensor', '"orbitNumber_rel"'], acquisition_mode='IW',
+                          lines=16685, vv=1) == [{'orbitNumber_rel': 117, 'sensor': 'S1A'}]
+        db.ingest_s2_from_id(testdata['s2_dup'])
+
+        assert db.count_scenes('sentinel2data') == \
+               [('S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.zip', 2)]
 
 
-    # assert all(isinstance(x, str) for x in db.get_tablenames())
-    # assert all(isinstance(x, str) for x in db.get_colnames())
-    # assert db.is_registered(testdata['s1']) is True
-    # assert len(db.get_unique_directories()) == 1
-    # assert db.select_duplicates(outname_base='S1A__IW___A_20150222T170750', scene='scene.zip') == []
-    # assert len(db.select(mindate='20141001T192312', maxdate='20201001T192312')) == 1
-    # assert len(db.select(polarizations=['VV'])) == 1
-    # assert len(db.select(vectorobject=id.bbox())) == 1
-    # assert len(db.select(sensor='S1A', vectorobject='foo', processdir=str(tmpdir))) == 1
-    # assert len(db.select(sensor='S1A', mindate='foo', maxdate='bar', foobar='foobar')) == 1
-    # out = db.select(vv=1, acquisition_mode=('IW', 'EW'))
-    # assert len(out) == 1
-    # assert isinstance(out[0], str)
+    #     db.__prepare_update()
+    #     db.insert  # checked in ingest_s2_from_id and ingest_s1_from_id
+    #     db.cleanup
+    #     db.export2shp
+    #     move
+    #     close
+    #     __exit__
     #
-    # db.insert(testdata['s1_3'])
-    # db.insert(testdata['s1_4'])
-    # db.drop_element(testdata['s1_3'])
-    # assert db.size == (2, 0)
-    # db.drop_element(testdata['s1_4'])
-    #
-    # db.add_tables(mytable)
-    # assert 'mytable' in db.get_tablenames()
-    # with pytest.raises(TypeError):
-    #     db.filter_scenelist([1])
-    db.close()
-    #isos.drop_archive(db)
+    # tables_to_create # tested in init
+
+
 

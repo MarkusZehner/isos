@@ -1,7 +1,7 @@
 spatialist~=0.8.1
 sqlalchemy~=1.4.29
 SQLAlchemy-Utils
-geoalchemy2~=0.6.3
+geoalchemy2>=0.6.3
 pyrosar~=0.15.1
 sentinelsat~=1.1.1
 shapely
