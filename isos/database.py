@@ -60,8 +60,8 @@ class Database(object):
         check whether all registered scenes exist and remove missing entries?
     """
 
-    def __init__(self, dbname, user='postgres',
-                 password='1234', host='localhost', port=5432, cleanup=True):
+    def __init__(self, dbname, user='user',
+                 password='password', host='localhost', port=5432, cleanup=True):
         self.driver = 'postgresql'
         if not self.__check_host(host, port):
             sys.exit('Server not found!')
@@ -144,44 +144,6 @@ class Database(object):
         """
         return Table(tablename.lower(), self.meta, autoload=True, autoload_with=self.engine)
 
-    # def __prepare_insertion(self, scene):
-    #     """
-    #     read scene metadata and parse a string for inserting it into the database
-    #     Parameters
-    #     ----------
-    #     scene: str or ID
-    #         a SAR scene
-    #     Returns
-    #     -------
-    #     object of class Data, insert string
-    #     """
-    #     id = scene if isinstance(scene, ID) else identify(scene)
-    #     pols = [x.lower() for x in id.polarizations]
-    #     # insertion as an object of Class Data (reflected in the init())
-    #     insertion = self.Data()
-    #     colnames = self.get_colnames()
-    #     for attribute in colnames:
-    #         if attribute == 'bbox':
-    #             geom = id.bbox()
-    #             geom.reproject(4326)
-    #             geom = geom.convert2wkt(set3D=False)[0]
-    #             geom = 'SRID=4326;' + str(geom)
-    #             # set attributes of the Data object according to input
-    #             setattr(insertion, 'bbox', geom)
-    #         elif attribute in ['hh', 'vv', 'hv', 'vh']:
-    #             setattr(insertion, attribute, int(attribute in pols))
-    #         else:
-    #             if hasattr(id, attribute):
-    #                 attr = getattr(id, attribute)
-    #             elif attribute in id.meta.keys():
-    #                 attr = id.meta[attribute]
-    #             else:
-    #                 raise AttributeError('could not find attribute {}'.format(attribute))
-    #             value = attr() if inspect.ismethod(attr) else attr
-    #             setattr(insertion, str(attribute), value)
-    #
-    #     return insertion  # return the Data object
-
     def __select_missing(self, table):
         """
         Returns
@@ -241,7 +203,7 @@ class Database(object):
             return False
         return True
 
-    def insert(self, table, primary_key, orderly_data, verbose=False, update=False):
+    def insert(self, table, primary_key, orderly_data, verbose=False, overwrite=False):
         """
         generic inserter for tables, checks if entry is already in db,
         update can be used to overwrite all concerning entries
@@ -255,25 +217,23 @@ class Database(object):
             list of dicts created by xx_01.loadwd.make_a_list
         verbose: bool
             print additional info
-        update: bool
-            update database? will overwrite all entries given in orderly_data
+        overwrite: bool
+            overwrite database? will overwrite all entries given in orderly_data
 
         Returns
         -------
 
         """
+        if len(orderly_data) == 0:
+            print(f'no scenes found for table {table}!')
+            return
+
         self.Base = automap_base(metadata=self.meta)
         self.Base.prepare(self.engine, reflect=True)
 
         self.__check_table_exists(table)
         table_schema = self.load_table(table)
         col_names = self.get_colnames(table)
-
-        # if table == 'duplicates':
-        #     print(table)
-        #     print(col_names)
-        #     print(list(orderly_data[0].keys()))
-        #     print(set(col_names) == set(orderly_data[0].keys()))
 
         reduce_entry = True if not set(col_names) == set(orderly_data[0].keys()) else False
 
@@ -285,7 +245,7 @@ class Database(object):
         for entry in orderly_data:
             if reduce_entry:
                 entry = {key: entry[key] for key in col_names}
-            if update:
+            if overwrite:
                 self.conn.execute(self.__prepare_update(table, primary_key, **entry))
             else:
                 exists_str = exists()
@@ -310,90 +270,6 @@ class Database(object):
             #     print('Rejected entries to Duplicates with already existing primary key: ', rejected)
         print(message)
         session.close()
-
-    # def insert(self, scene_in, pbar=False, test=False):
-    #     """
-    #     Insert one or many scenes into the database
-    #     Parameters
-    #     ----------
-    #     scene_in: str or ID or list
-    #         a SAR scene or a list of scenes to be inserted
-    #     pbar: bool
-    #         show a progress bar?
-    #     test: bool
-    #         should the insertion only be tested or directly be committed to the database?
-    #     """
-    #     length = len(scene_in) if isinstance(scene_in, list) else 1
-    #
-    #     if isinstance(scene_in, (ID, str)):
-    #         scene_in = [scene_in]
-    #     if not isinstance(scene_in, list):
-    #         raise RuntimeError('scene_in must either be a string pointing to a file, a pyroSAR.ID object '
-    #                            'or a list containing several of either')
-    #
-    #     log.info('filtering scenes by name')
-    #     scenes = self.filter_scenelist(scene_in)
-    #     if len(scenes) == 0:
-    #         log.info('...nothing to be done')
-    #         return
-    #     log.info('identifying scenes and extracting metadata')
-    #     scenes = identify_many(scenes, pbar=pbar)
-    #
-    #     if len(scenes) == 0:
-    #         log.info('all scenes are already registered')
-    #         return
-    #
-    #     counter_regulars = 0
-    #     counter_duplicates = 0
-    #     list_duplicates = []
-    #
-    #     message = 'inserting {0} scene{1} into database'
-    #     log.info(message.format(len(scenes), '' if len(scenes) == 1 else 's'))
-    #     log.debug('testing changes in temporary database')
-    #     if pbar:
-    #         progress = pb.ProgressBar(max_value=len(scenes))
-    #     else:
-    #         progress = None
-    #     basenames = []
-    #     insertions = []
-    #     session = self.Session()
-    #     for i, id in enumerate(scenes):
-    #         basename = id.outname_base()
-    #         if not self.is_registered(id) and basename not in basenames:
-    #             insertion = self.__prepare_insertion(id)
-    #             insertions.append(insertion)
-    #             counter_regulars += 1
-    #             log.debug('regular:   {}'.format(id.scene))
-    #         elif not self.__is_registered_in_duplicates(id):
-    #             insertion = self.Duplicates(outname_base=basename, scene=id.scene)
-    #             insertions.append(insertion)
-    #             counter_duplicates += 1
-    #             log.debug('duplicate: {}'.format(id.scene))
-    #         else:
-    #             list_duplicates.append(id.outname_base())
-    #
-    #         if progress is not None:
-    #             progress.update(i + 1)
-    #         basenames.append(basename)
-    #
-    #     if progress is not None:
-    #         progress.finish()
-    #
-    #     session.add_all(insertions)
-    #
-    #     if not test:
-    #         log.debug('committing transactions to permanent database')
-    #         # commit changes of the session
-    #         session.commit()
-    #     else:
-    #         log.info('rolling back temporary database changes')
-    #         # roll back changes of the session
-    #         session.rollback()
-    #
-    #     message = '{0} scene{1} registered regularly'
-    #     log.info(message.format(counter_regulars, '' if counter_regulars == 1 else 's'))
-    #     message = '{0} duplicate{1} registered'
-    #     log.info(message.format(counter_duplicates, '' if counter_duplicates == 1 else 's'))
 
     def is_registered(self, scene, table):
         """
@@ -443,27 +319,6 @@ class Database(object):
         # if exists_duplicates:
         #     in_dup = len(exists_duplicates) != 0
         # return in_data or in_dup
-
-    # def __is_registered_in_duplicates(self, scene):
-    #     """
-    #     Simple check if a scene is already registered in the database.
-    #     Parameters
-    #     ----------
-    #     scene: str or ID
-    #         the SAR scene
-    #     Returns
-    #     -------
-    #     bool
-    #         is the scene already registered?
-    #     """
-    #     id = scene if isinstance(scene, ID) else identify(scene)
-    #     # ORM query as in is registered
-    #     exists_duplicates = self.Session().query(self.Duplicates.outname_base).filter(
-    #         self.Duplicates.outname_base == id.outname_base()).first()
-    #     in_dup = False
-    #     if exists_duplicates:
-    #         in_dup = len(exists_duplicates) != 0
-    #     return in_dup
 
     def cleanup(self):
         """
@@ -793,153 +648,6 @@ class Database(object):
         query_rs = self.conn.execute(query)
         return [{column: value for column, value in rowproxy.items()} for rowproxy in query_rs]
 
-    # def select(self, vectorobject=None, mindate=None, maxdate=None, processdir=None,
-    #            recursive=False, polarizations=None, **args):
-    #     """
-    #     select scenes from the database
-    #     Parameters
-    #     ----------
-    #     vectorobject: :class:`~spatialist.vector.Vector`
-    #         a geometry with which the scenes need to overlap
-    #     mindate: str or datetime.datetime, optional
-    #         the minimum acquisition date; strings must be in format YYYYmmddTHHMMSS; default: None
-    #     maxdate: str or datetime.datetime, optional
-    #         the maximum acquisition date; strings must be in format YYYYmmddTHHMMSS; default: None
-    #     processdir: str, optional
-    #         A directory to be scanned for already processed scenes;
-    #         the selected scenes will be filtered to those that have not yet been processed. Default: None
-    #     recursive: bool
-    #         (only if `processdir` is not None) should also the subdirectories of the `processdir` be scanned?
-    #     polarizations: list
-    #         a list of polarization strings, e.g. ['HH', 'VV']
-    #     **args:
-    #         any further arguments (columns), which are registered in the database. See :meth:`~Archive.get_colnames()`
-    #     Returns
-    #     -------
-    #     list
-    #         the file names pointing to the selected scenes
-    #     """
-    #     arg_valid = [x for x in args.keys() if x in self.get_colnames()]
-    #     arg_invalid = [x for x in args.keys() if x not in self.get_colnames()]
-    #     if len(arg_invalid) > 0:
-    #         log.info('the following arguments will be ignored as they are not registered in the data base: {}'.format(
-    #             ', '.join(arg_invalid)))
-    #     arg_format = []
-    #     vals = []
-    #     for key in arg_valid:
-    #         if key == 'scene':
-    #             arg_format.append('''scene LIKE '%%{0}%%' '''.format(os.path.basename(args[key])))
-    #         else:
-    #             if isinstance(args[key], (float, int, str)):
-    #                 arg_format.append('''{0}='{1}' '''.format(key, args[key]))
-    #             elif isinstance(args[key], (tuple, list)):
-    #                 arg_format.append('''{0} IN ('{1}')'''.format(key, "', '".join(map(str, args[key]))))
-    #     if mindate:
-    #         if isinstance(mindate, datetime):
-    #             mindate = mindate.strftime('%Y%m%dT%H%M%S')
-    #         if re.search('[0-9]{8}T[0-9]{6}', mindate):
-    #             arg_format.append('start>=?')
-    #             vals.append(mindate)
-    #         else:
-    #             log.info('WARNING: argument mindate is ignored, must be in format YYYYmmddTHHMMSS')
-    #     if maxdate:
-    #         if isinstance(maxdate, datetime):
-    #             maxdate = maxdate.strftime('%Y%m%dT%H%M%S')
-    #         if re.search('[0-9]{8}T[0-9]{6}', maxdate):
-    #             arg_format.append('stop<=?')
-    #             vals.append(maxdate)
-    #         else:
-    #             log.info('WARNING: argument maxdate is ignored, must be in format YYYYmmddTHHMMSS')
-    #
-    #     if polarizations:
-    #         for pol in polarizations:
-    #             if pol in ['HH', 'VV', 'HV', 'VH']:
-    #                 arg_format.append('{}=1'.format(pol.lower()))
-    #
-    #     if vectorobject:
-    #         if isinstance(vectorobject, Vector):
-    #             vectorobject.reproject(4326)
-    #             site_geom = vectorobject.convert2wkt(set3D=False)[0]
-    #             # postgres has a different way to store geometries
-    #             if self.driver == 'postgresql':
-    #                 arg_format.append("st_intersects(bbox, 'SRID=4326; {}')".format(
-    #                     site_geom
-    #                 ))
-    #             else:
-    #                 arg_format.append('st_intersects(GeomFromText(?, 4326), bbox) = 1')
-    #                 vals.append(site_geom)
-    #         else:
-    #             log.info('WARNING: argument vectorobject is ignored, must be of type spatialist.vector.Vector')
-    #
-    #     query = '''SELECT scene, outname_base FROM data WHERE {}'''.format(' AND '.join(arg_format))
-    #     # the query gets assembled stepwise here
-    #     for val in vals:
-    #         query = query.replace('?', ''' '{0}' ''', 1).format(val)
-    #     log.debug(query)
-    #
-    #     # core SQL execution
-    #     query_rs = self.conn.execute(query)
-    #
-    #     if processdir and os.path.isdir(processdir):
-    #         scenes = [x for x in query_rs
-    #                   if len(finder(processdir, [x[1]], regex=True, recursive=recursive)) == 0]
-    #     else:
-    #         scenes = query_rs
-    #     ret = []
-    #     for x in scenes:
-    #         ret.append(self.encode(x[0]))
-    #
-    #     return ret
-
-    # def select_duplicates(self, outname_base=None, scene=None, value='id'):
-    #     """
-    #     Select scenes from the duplicates table. In case both `outname_base` and `scene` are set to None all scenes in
-    #     the table are returned, otherwise only those that match the attributes `outname_base` and `scene` if they are
-    #     not None.
-    #     Parameters
-    #     ----------
-    #     outname_base: str
-    #         the basename of the scene
-    #     scene: str
-    #         the scene name
-    #     value: str
-    #         the return value; either 'id' or 'scene'
-    #     Returns
-    #     -------
-    #     list
-    #         the selected scene(s)
-    #     """
-    #     if value == 'id':
-    #         key = 0
-    #     elif value == 'scene':
-    #         key = 1
-    #     else:
-    #         raise ValueError("argument 'value' must be either 0 or 1")
-    #
-    #     if not outname_base and not scene:
-    #         # core SQL execution
-    #         scenes = self.conn.execute('SELECT * from duplicates')
-    #     else:
-    #         cond = []
-    #         arg = []
-    #         if outname_base:
-    #             cond.append('outname_base=?')
-    #             arg.append(outname_base)
-    #         if scene:
-    #             cond.append('scene=?')
-    #             arg.append(scene)
-    #         query = 'SELECT * from duplicates WHERE {}'.format(' AND '.join(cond))
-    #         for a in arg:
-    #             query = query.replace('?', ''' '{0}' ''', 1).format(a)
-    #         # core SQL execution
-    #         scenes = self.conn.execute(query)
-    #
-    #     ret = []
-    #     for x in scenes:
-    #         ret.append(self.encode(x[key]))
-    #
-    #     return ret
-
     @property
     def size(self):
         """
@@ -1144,7 +852,7 @@ class Database(object):
         Helper method to refactor Sentinel-1 id objects, make keys lower, replace ' ' by '_',
         make values the right unit types.
         ----------
-        metadata_as_list_of_dicts: list of [pyroSAR.ID]
+        scenes: list of str
             s1 id objects
         Returns
         -------
