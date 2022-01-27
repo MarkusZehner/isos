@@ -934,7 +934,10 @@ class Database(object):
                     temp_dict[key] = float(value)
                 if str(coltypes.get(key)) in ['TIMESTAMP', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME']:
                     if value != '' and value:
-                        temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+                        try:
+                            temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+                        except ValueError as e:
+                            print(e)
                 if str(coltypes.get(key)) in ['geometry(POLYGON,4326)']:
                     temp_dict[key] = WKTElement(value, srid=4326)
 
