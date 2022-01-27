@@ -809,6 +809,8 @@ class Database(object):
             scene_dirs = [scene_dirs]
 
         for filename in scene_dirs:
+            if filename.endswith('.incomplete'):
+                continue
             name_dot_safe = Path(filename).stem + '.SAFE'
             xml_file = None
             if name_dot_safe[4:10] == 'MSIL2A':
