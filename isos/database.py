@@ -304,10 +304,10 @@ class Database(object):
             if verbose:
                 print('Rejected entries with already existing primary key: ', rejected)
             message += ', rejected {} (already existing).'.format(len(rejected))
-            if not table == 'duplicates':
-                self.insert('duplicates', self.get_primary_keys('duplicates'), rejected)
-            else:
-                print('Rejected entries to Duplicates with already existing primary key: ', rejected)
+            # if not table == 'duplicates':  # this has no use with absolute paths as prim keys
+            #     self.insert('duplicates', self.get_primary_keys('duplicates'), rejected)
+            # else:
+            #     print('Rejected entries to Duplicates with already existing primary key: ', rejected)
         print(message)
         session.close()
 

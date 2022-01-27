@@ -27,14 +27,14 @@ from isos import Database
 
 def main(directory, user=False):
 
-    pguser = os.environ.get('PGUSER')
-    pgpassword = os.environ.get('PGPASSWORD')
-    pgport = os.environ.get('PGPORT')
+    pguser = 'user'  # os.environ.get('PGUSER')
+    pgpassword = 'password'  # os.environ.get('PGPASSWORD')
+    pgport = 8888  # os.environ.get('PGPORT')
 
     scenes_s1 = finder(directory, [r'^S1[AB].*\.zip'], recursive=True, regex=True)
     scenes_s2 = finder(directory, [r'^S2[AB].*\.zip'], recursive=True, regex=True)
 
-    with Database('test_isos', user=pguser, password=pgpassword) as db:
+    with Database('isos_db', user=pguser, password=pgpassword, port=pgport) as db:
         db.ingest_s1_from_id(scenes_s1)
         db.ingest_s2_from_id(scenes_s2)
         count1 = db.count_scenes('sentinel1data')
