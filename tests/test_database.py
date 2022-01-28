@@ -71,7 +71,7 @@ def test_archive(tmpdir, testdata, testdir):
 
         assert db.get_colnames('duplicates') == ['outname_base', 'scene']
 
-        assert db.size == (3, 2)  # 3 tables with combined 2 scenes ingested
+        assert db.size == (5, 1)  # 3 tables with combined 2 scenes ingested
         db.ingest_s2_from_id(testdata['s2'])
 
         assert db.query_db('sentinel2data', ['processing_level'], product_type='S2MSI2A') == \
@@ -87,6 +87,13 @@ def test_archive(tmpdir, testdata, testdir):
 
         assert db.count_scenes('sentinel2data') == \
                [('S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.zip', 2)]
+
+        es1_colnames = {i.name: i.type for i in db.load_table('existings1').c}
+        es2_colnames = {i.name: i.type for i in db.load_table('existings2').c}
+
+        assert str(es1_colnames) == str(es2_colnames)
+        assert str(es2_colnames) == "{'scene': VARCHAR(), 'read_permission': INTEGER(), 'outname_base': VARCHAR()}"
+        #print('works')
 
     with isos.Database('test_isos', port=pgport, user='markuszehner', password=pgpassword) as db:
         isos.drop_archive(db)

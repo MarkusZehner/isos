@@ -357,7 +357,7 @@ class Database(object):
         -------
         """
         if table not in self.get_tablenames():
-            log.warning('Only data and duplicates can be exported!')
+            log.warning('table not in database!')
             return
 
         # add the .shp extension if missing
@@ -828,7 +828,7 @@ class Database(object):
         orderly_data = self.__refactor_sentinel2data(metadata)
         return orderly_data
 
-    def ingest_s2_from_id(self, scene_dirs, update=False, verbose=False):
+    def ingest_s2_from_id(self, scene_dirs, overwrite=False, verbose=False):
         """
         ingest Sentinel-2 .zips into table sentinel2data.
 
@@ -836,8 +836,8 @@ class Database(object):
         ----------
         scene_dirs: str
             list of Sentinel-2 zip paths
-        update: bool
-            update database? will overwrite matching entries
+        overwrite: bool
+            overwrite database? will overwrite matching entries
         verbose: bool
             print additional info
 
@@ -847,7 +847,7 @@ class Database(object):
         orderly_data = self.identify_sentinel2_from_folder(scene_dirs)
 
         self.insert(table='sentinel2data', primary_key=self.get_primary_keys('sentinel2data'),
-                    orderly_data=orderly_data, verbose=verbose, update=update)
+                    orderly_data=orderly_data, verbose=verbose, overwrite=overwrite)
 
     def parse_id(self, scenes):
         """
@@ -896,12 +896,12 @@ class Database(object):
             orderly_data.append(temp_dict)
         return orderly_data
 
-    def ingest_s1_from_id(self, scene_dirs, update=False, verbose=False):
+    def ingest_s1_from_id(self, scene_dirs, overwrite=False, verbose=False):
 
         orderly_data = self.parse_id(scene_dirs)
 
         self.insert(table='sentinel1data', primary_key=self.get_primary_keys('sentinel1data'),
-                    orderly_data=orderly_data, verbose=verbose, update=update)
+                    orderly_data=orderly_data, verbose=verbose, overwrite=overwrite)
 
     def __refactor_sentinel2data(self, metadata_as_list_of_dicts):
         """
@@ -916,10 +916,11 @@ class Database(object):
         list of dict
             reformatted data
         """
-        table_schema_cols = self.load_table('sentinel2data').c
-        coltypes = {}
-        for i in table_schema_cols:
-            coltypes[i.name] = i.type
+        # table_schema_cols = self.load_table('sentinel2data').c
+        # coltypes = {}
+        # for i in table_schema_cols:
+        #     coltypes[i.name] = i.type
+        coltypes = {i.name: i.type for i in self.load_table('sentinel2data').c}
 
         orderly_data = []
         for entry in metadata_as_list_of_dicts:

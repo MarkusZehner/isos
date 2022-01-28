@@ -181,3 +181,24 @@ class Duplicates(Base):
     scene = Column(String, primary_key=True)
     outname_base = Column(String)
 
+
+class ExistingS1(Base):
+    """
+    get all scenes on drive, check if accessible
+    """
+    __tablename__ = 'existings1'
+
+    scene = Column(String, primary_key=True)
+    read_permission = Column(Integer)
+    outname_base = Column(String)
+
+
+class ExistingS2(Base):
+    """
+    get all scenes on drive, check if accessible
+    """
+    __tablename__ = 'existings2'
+
+    scene = Column(String, primary_key=True)
+    read_permission = Column(Integer)
+    outname_base = Column(String)
