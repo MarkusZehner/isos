@@ -203,7 +203,7 @@ class Database(object):
             return False
         return True
 
-    def insert(self, table, primary_key, orderly_data, verbose=False, overwrite=False):
+    def insert(self, table, primary_key, orderly_data, verbose=False, update=False):
         """
         generic inserter for tables, checks if entry is already in db,
         update can be used to overwrite all concerning entries
@@ -217,8 +217,9 @@ class Database(object):
             list of dicts created by xx_01.loadwd.make_a_list
         verbose: bool
             print additional info
-        overwrite: bool
-            overwrite database? will overwrite all entries given in orderly_data
+        update: bool
+            update database? will update all entries given in orderly_data
+
 
         Returns
         -------
@@ -245,25 +246,31 @@ class Database(object):
         for entry in orderly_data:
             if reduce_entry:
                 entry = {key: entry[key] for key in col_names}
-            if overwrite:
-                self.conn.execute(self.__prepare_update(table, primary_key, **entry))
-            else:
-                exists_str = exists()
-                for p_key in primary_key:
-                    exists_str = exists_str.where(table_schema.c[p_key] == entry[p_key])
-                ret = session.query(exists_str).scalar()
 
-                if ret:
-                    rejected.append(entry)
-                else:
-                    session.add(tableobj(**entry))
-                    session.commit()
+            exists_str = exists()
+            for p_key in primary_key:
+                exists_str = exists_str.where(table_schema.c[p_key] == entry[p_key])
+            ret = session.query(exists_str).scalar()
+
+            if ret:
+                if update:
+                    self.conn.execute(self.__prepare_update(table, primary_key, **entry))
+                rejected.append(entry)
+            else:
+                session.add(tableobj(**entry))
+                session.commit()
         session.close()
         message = 'Ingested {} entries to table {}'.format(len(orderly_data) - len(rejected), table)
         if len(rejected) > 0:
             if verbose:
-                print('Rejected entries with already existing primary key: ', rejected)
-            message += ', rejected {} (already existing).'.format(len(rejected))
+                if update:
+                    print('Updated entries with already existing primary key: ', rejected)
+                else:
+                    print('Rejected entries with already existing primary key: ', rejected)
+            if update:
+                message += ', updated {} (already existing).'.format(len(rejected))
+            else:
+                message += ', rejected {} (already existing).'.format(len(rejected))
             # if not table == 'duplicates':  # this has no use with absolute paths as prim keys
             #     self.insert('duplicates', self.get_primary_keys('duplicates'), rejected)
             # else:
@@ -828,7 +835,7 @@ class Database(object):
         orderly_data = self.__refactor_sentinel2data(metadata)
         return orderly_data
 
-    def ingest_s2_from_id(self, scene_dirs, overwrite=False, verbose=False):
+    def ingest_s2_from_id(self, scene_dirs, update=False, verbose=False):
         """
         ingest Sentinel-2 .zips into table sentinel2data.
 
@@ -836,8 +843,8 @@ class Database(object):
         ----------
         scene_dirs: str
             list of Sentinel-2 zip paths
-        overwrite: bool
-            overwrite database? will overwrite matching entries
+        update: bool
+            update database? will update matching entries
         verbose: bool
             print additional info
 
@@ -847,7 +854,7 @@ class Database(object):
         orderly_data = self.identify_sentinel2_from_folder(scene_dirs)
 
         self.insert(table='sentinel2data', primary_key=self.get_primary_keys('sentinel2data'),
-                    orderly_data=orderly_data, verbose=verbose, overwrite=overwrite)
+                    orderly_data=orderly_data, verbose=verbose, update=update)
 
     def parse_id(self, scenes):
         """
@@ -896,12 +903,12 @@ class Database(object):
             orderly_data.append(temp_dict)
         return orderly_data
 
-    def ingest_s1_from_id(self, scene_dirs, overwrite=False, verbose=False):
+    def ingest_s1_from_id(self, scene_dirs, update=False, verbose=False):
 
         orderly_data = self.parse_id(scene_dirs)
 
         self.insert(table='sentinel1data', primary_key=self.get_primary_keys('sentinel1data'),
-                    orderly_data=orderly_data, verbose=verbose, overwrite=overwrite)
+                    orderly_data=orderly_data, verbose=verbose, update=update)
 
     def __refactor_sentinel2data(self, metadata_as_list_of_dicts):
         """

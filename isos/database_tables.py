@@ -176,7 +176,7 @@ class Duplicates(Base):
     """
     should stay empty because of the complete path as primary key!
     """
-    __tablename__ = 'duplicates'
+    __tablename__ = 'duplicates_isos'
 
     scene = Column(String, primary_key=True)
     outname_base = Column(String)
