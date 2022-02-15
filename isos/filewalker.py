@@ -3,7 +3,7 @@ from spatialist.ancillary import finder
 from .database import Database
 
 
-def filesweeper(directory, user, password, port):
+def filesweeper(directory, user, password, port, overwrite=True):
     """
     gets dir, searches for s1 and s2, stores into tables ExistS1/2 with note of readability
 
@@ -14,6 +14,9 @@ def filesweeper(directory, user, password, port):
     user: str
     password: str
     port: int
+    overwrite: bool
+        overwrite the exists table, default true to be up to date
+
     Returns
     -------
     """
@@ -34,14 +37,21 @@ def filesweeper(directory, user, password, port):
         orderly_exist_s1 = []
         for scene in scenes_s1:
             orderly_exist_s1.append({'scene': scene,
-                                     'read_permission': int(os.access(scene, os.W_OK)),
-                                     'outname_base': os.path.basename(scene)})
+                                     'outname_base': os.path.basename(scene),
+                                     'read_permission': int(os.access(scene, os.R_OK)),
+                                     'file_size_MB': int(os.stat(scene).st_size / (1024 * 1024)),
+                                     'owner': os.stat(scene).st_uid
+                                     })
 
         orderly_exist_s2 = []
         for scene in scenes_s2:
             orderly_exist_s2.append({'scene': scene,
-                                     'read_permission': int(os.access(scene, os.W_OK)),
-                                     'outname_base': os.path.basename(scene)})
+                                     'outname_base': os.path.basename(scene),
+                                     'read_permission': int(os.access(scene, os.R_OK)),
+                                     'file_size_MB': int(os.stat(scene).st_size / (1024 * 1024)),
+                                     'owner': os.stat(scene).st_uid})
 
-        db.insert(table='existings1', primary_key=db.get_primary_keys('existings1'), orderly_data=orderly_exist_s1)
-        db.insert(table='existings2', primary_key=db.get_primary_keys('existings2'), orderly_data=orderly_exist_s2)
+        db.insert(table='existings1', primary_key=db.get_primary_keys('existings1'),
+                  orderly_data=orderly_exist_s1, overwrite=overwrite)
+        db.insert(table='existings2', primary_key=db.get_primary_keys('existings2'),
+                  orderly_data=orderly_exist_s2, overwrite=overwrite)

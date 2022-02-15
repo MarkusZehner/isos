@@ -189,8 +189,10 @@ class ExistingS1(Base):
     __tablename__ = 'existings1'
 
     scene = Column(String, primary_key=True)
-    read_permission = Column(Integer)
     outname_base = Column(String)
+    read_permission = Column(Integer)
+    file_size_MB = Column(Integer)
+    owner = Column(String)
 
 
 class ExistingS2(Base):
@@ -200,5 +202,7 @@ class ExistingS2(Base):
     __tablename__ = 'existings2'
 
     scene = Column(String, primary_key=True)
-    read_permission = Column(Integer)
     outname_base = Column(String)
+    read_permission = Column(Integer)
+    file_size_MB = Column(Integer)
+    owner = Column(String)
