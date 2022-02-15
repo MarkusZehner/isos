@@ -55,3 +55,25 @@ def filesweeper(directory, user, password, port, overwrite=True):
                   orderly_data=orderly_exist_s1, overwrite=overwrite)
         db.insert(table='existings2', primary_key=db.get_primary_keys('existings2'),
                   orderly_data=orderly_exist_s2, overwrite=overwrite)
+
+
+def ingest_from_exist_table(user, password, port, overwrite=False):
+    """
+    gets data from exists tables with read permission and ingests the metadata into the according tables
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    """
+
+    with Database('isos_db', user=user, password=password, port=port) as db:
+
+        session = db.Session()
+        scene_dirs = session.query(db.load_table('existings1').c.scene).filter(
+            db.load_table('existings1').c.read_permission == 1)
+        db.ingest_s1_from_id(scene_dirs, overwrite=overwrite)
+        scene_dirs = session.query(db.load_table('existings2').c.scene).filter(
+            db.load_table('existings2').c.read_permission == 1)
+        db.ingest_s2_from_id(scene_dirs, overwrite=overwrite)
