@@ -27,9 +27,9 @@ def filesweeper(directory, user, password, port):
         es1_colnames = {i.name: i.type for i in db.load_table('existings1').c}
         es2_colnames = {i.name: i.type for i in db.load_table('existings2').c}
 
-        if str(es1_colnames) == str(es2_colnames) and \
-                str(es2_colnames) == "{'scene': VARCHAR(), 'read_permission': INTEGER(), 'outname_base': VARCHAR()}":
-            print('works')
+        if not (str(es1_colnames) == str(es2_colnames) and
+                str(es2_colnames) == "{'scene': VARCHAR(), 'read_permission': INTEGER(), 'outname_base': VARCHAR()}"):
+            print('Exists tables have changed!')
 
         orderly_exist_s1 = []
         for scene in scenes_s1:

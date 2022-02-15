@@ -30,6 +30,8 @@ def test_archive(tmpdir, testdata, testdir):
     with isos.Database('test_isos', port=pgport, user='markuszehner', password=pgpassword) as db:
         isos.drop_archive(db)
 
+    isos.filewalker.filesweeper(testdir, 'markuszehner', pgpassword, pgport)
+
     id = identify(testdata['s1'])
     with isos.Database('test_isos', port=pgport, user='markuszehner', password=pgpassword) as db:
 

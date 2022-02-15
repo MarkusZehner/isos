@@ -949,7 +949,7 @@ class Database(object):
 
     def count_scenes(self, table):
         """
-        returns basename and count of ingested scenes from the requested table if count > 1
+        returns basename and count of ingested scenes from the requested table
 
         Parameters
         ----------
@@ -966,6 +966,20 @@ class Database(object):
             ret = session.query(table_schema.c.outname_base, func.count(table_schema.c.outname_base)).\
                 group_by(table_schema.c.outname_base).all()
             return ret
+
+    def count_permission_state(self, table):
+        """
+        returns nr of readable files from the requested table
+
+        Parameters
+        ----------
+        table: str
+            table name
+        Returns
+        -------
+        """
+        ret = self.Session().query(func.sum(self.load_table(table).c.read_permission))
+        return ret.scalar()
 
 
 def drop_archive(database):
