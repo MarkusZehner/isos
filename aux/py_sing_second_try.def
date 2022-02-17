@@ -1,0 +1,75 @@
+Bootstrap: library
+From: ubuntu:21.04
+Stage: build
+
+%files
+    testsingenv.yml /home
+
+%post
+    apt-get update && apt-get -y upgrade
+    apt-get -y install \
+    build-essential \
+    wget \
+    bzip2 \
+    locales \
+    ca-certificates \
+    libglib2.0-0 \
+    libxext6 \
+    libsm6 \
+    libxrender1 \
+    git \
+    libpq-dev
+
+    ## Set locale
+    locale-gen en_US.UTF-8
+    export LANG=en_US.UTF-8
+    export LANGUAGE=en_US:en
+    export LC_ALL=en_US.UTF-8
+
+    rm -rf /var/lib/apt/lists/*
+    apt-get clean
+
+    #Installing Miniconda 3
+    wget -c https://repo.anaconda.com/miniconda/Miniconda3-py39_4.10.3-Linux-x86_64.sh
+    /bin/bash Miniconda3-py39_4.10.3-Linux-x86_64.sh -bfp /opt/miniconda3
+
+    export PATH=/opt/miniconda3/bin:$PATH
+
+
+    rm Miniconda3-py39_4.10.3-Linux-x86_64.sh
+
+    echo ". /opt/miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
+    
+    #/opt/miniconda3/bin/conda init
+    #source /root/.bashrc
+ 
+
+    /opt/miniconda3/bin/conda init
+    conda update -y -n base conda
+    conda config --system --prepend channels conda-forge
+    conda config --system --set auto_update_conda false
+
+    conda env create --file /home/testsingenv.yml 
+
+    ## Install stuff
+    # conda install gdal=3.3.3
+    # check error with poppler ?
+    # conda install -c conda-forge poppler=21.09
+
+    # pip install git+https://github.com/MarkusZehner/isos.git
+    # created conda env from yaml file, then added pip and isos
+    # maybe upgrade to geoalchemy2 10.2 to fix cache error
+
+
+    ## General cleanup
+    conda clean -y --all
+    apt-get -y autoremove --purge
+    apt-get -y clean
+    rm -rf /src
+
+    echo "conda activate isos_py_env" >> $SINGULARITY_ENVIRONMENT
+    conda install pip	
+    pip install git+https://github.com/MarkusZehner/isos.git
+ 
+
+    

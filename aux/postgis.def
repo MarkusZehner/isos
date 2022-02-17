@@ -1,0 +1,7 @@
+Bootstrap: docker
+From: postgis/postgis:14-3.2
+
+%environment
+    export POSTGRES_DB=data
+    export POSTGRES_USER=user
+    export POSTGRES_PASSWORD=password
