@@ -21,12 +21,12 @@ mytable = Table('mytable', metadata,
 def test_archive(tmpdir, testdata, testdir):
     pguser = os.environ.get('PGUSER')
     pgpassword = os.environ.get('PGPASSWORD')
-    pgport = os.environ.get('PGPORT')
-    if pgport is not None:
-        pgport = int(pgport)
-    else:
-        pgport = 5432
-
+    #pgport = os.environ.get('PGPORT')
+    #if pgport is not None:
+    #    pgport = int(pgport)
+    #else:
+    #    pgport = 5432
+    pgport = 5432
     with isos.Database('isos_db', port=pgport, user='markuszehner', password=pgpassword) as db:
         isos.drop_archive(db)
 
@@ -94,7 +94,7 @@ def test_archive(tmpdir, testdata, testdir):
         assert str(es2_colnames) == "{'scene': VARCHAR(), 'outname_base': VARCHAR(), 'read_permission': " \
                                     "INTEGER(), 'file_size_MB': INTEGER(), 'owner': VARCHAR()}"
     print('works')
-    isos.filewalker.filesweeper(testdir, 'markuszehner', pgpassword, pgport)
+    isos.filewalker.filesweeper(directory=testdir, user='markuszehner', password=pgpassword, port=pgport)
     isos.ingest_from_exist_table(user='markuszehner', password=pgpassword, port=pgport)
 
     print('test pyrosar compat')
