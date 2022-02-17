@@ -1,2 +1,3 @@
-from .database import *
 from .filewalker import *
+from .database import *
+

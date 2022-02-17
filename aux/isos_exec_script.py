@@ -1,5 +1,5 @@
 import sys
-from isos import filewalker
+from isos.filewalker import cronjob_task
 
 if __name__ == '__main__':
     directory = sys.argv[1]
@@ -9,4 +9,4 @@ if __name__ == '__main__':
     password  = sys.argv[4]
     port      = int(sys.argv[5])
 
-    filewalker.cronjob_task(directory, dbname, user, password, port)
+    cronjob_task(directory, dbname, user, password, port)
