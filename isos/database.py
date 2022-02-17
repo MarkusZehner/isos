@@ -841,7 +841,7 @@ class Database(object):
 
         Parameters
         ----------
-        scene_dirs: str
+        scene_dirs: str or list of str
             list of Sentinel-2 zip paths
         update: bool
             update database? will update matching entries

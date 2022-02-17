@@ -30,9 +30,6 @@ def test_archive(tmpdir, testdata, testdir):
     with isos.Database('isos_db', port=pgport, user='markuszehner', password=pgpassword) as db:
         isos.drop_archive(db)
 
-
-
-    id = identify(testdata['s1'])
     with isos.Database('isos_db', port=pgport, user='markuszehner', password=pgpassword) as db:
 
         assert db._Database__is_open('localhost', 5432) is True  # checked in init
@@ -50,19 +47,18 @@ def test_archive(tmpdir, testdata, testdir):
         # check ingests
         assert db.is_registered(testdata['s2'], 'sentinel2data') is True
         assert db.is_registered(testdata['s1'], 'sentinel1data') is True
-        # test rejecting doubles, and adding to duplicates
-        # todo: this should just ignore the scenes, as they have same directories, i think it does, but check!
+        # test rejecting doubles
         db.ingest_s2_from_id(testdata['s2'])
         db.ingest_s1_from_id(testdata['s1'])
 
-        db.drop_element(testdata['s1'], 'duplicates_isos')
+        db.drop_element(testdata['s1'], 'duplicatesisos')
 
         db.add_tables(mytable)
         assert db._Database__check_table_exists('mytable') is True
         assert 'mytable' in db.get_tablenames(return_all=True)
         db.drop_table('mytable')
         assert db._Database__check_table_exists('mytable') is False
-        assert db._Database__select_missing('duplicates_isos') == []
+        assert db._Database__select_missing('duplicatesisos') == []
         db.cleanup()
 
         assert db.get_primary_keys('sentinel2data') == ['scene']
@@ -72,7 +68,7 @@ def test_archive(tmpdir, testdata, testdir):
         db.drop_element(testdata['s2'], 'sentinel2data')
         assert len(db.filter_scenelist([testdata['s2'], testdata['s2_2']], 'sentinel2data')) == 2
 
-        assert db.get_colnames('duplicates_isos') == ['outname_base', 'scene']
+        assert db.get_colnames('duplicatesisos') == ['outname_base', 'scene']
 
         assert db.size == (5, 1)  # 3 tables with combined 2 scenes ingested
         db.ingest_s2_from_id(testdata['s2'])
