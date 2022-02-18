@@ -879,7 +879,14 @@ class Database(object):
             scenes = [scenes]
 
         for scene in scenes:
-            id = scene if isinstance(scene, ID) else identify(scene)
+            if isinstance(scene, ID):
+                id = scene
+            else:
+                try:
+                    identify(scene)
+                except RuntimeError:
+                    print(scene)
+                    continue
             pols = [x.lower() for x in id.polarizations]
 
             temp_dict = {}
