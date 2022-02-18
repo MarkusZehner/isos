@@ -86,6 +86,7 @@ def ingest_from_exist_table(dbname='isos_db', user='user', password='password', 
         for i in scene_dirs:
             ingest.append(i[0])
         db.ingest_s2_from_id(ingest, update=update)
+        session.close()
         db.close()
 
 

@@ -494,6 +494,7 @@ class Database(object):
         for p_key in primary_key:
             exists_str = exists_str.where(table_schema.c[p_key] == id[p_key])
         ret = session.query(exists_str).scalar()
+        session.close()
 
         if ret:
             return True
@@ -870,6 +871,7 @@ class Database(object):
             session = self.Session()
             ret = session.query(table_schema.c.outname_base, func.count(table_schema.c.outname_base)).\
                 group_by(table_schema.c.outname_base).all()
+            session.close()
             return ret
 
     def count_permission_state(self, table):
