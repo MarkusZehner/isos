@@ -1,5 +1,5 @@
 import sys
-from isos.filewalker import cronjob_task
+from isos.search_and_deploy import cronjob_task
 
 if __name__ == '__main__':
     directory = sys.argv[1]
