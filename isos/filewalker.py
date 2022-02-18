@@ -24,19 +24,15 @@ def filesweeper(directory, dbname='isos_db', user='user', password='password', p
     """
 
     # make list of dirs for input to exist tables
-    scenes_s1 = finder(directory, ['^S1[AB]_.*.zip$'], recursive=True, regex=True)
-    scenes_s2 = finder(directory, ['^S2[AB]_.*.zip$'], recursive=True, regex=True)
-    #print('searching done!')
+    pattern_s1 = '^S1[AB]_(S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_(SLC|GRD|OCN)(F|H|M|_)_' \
+                 '(1|2)(S|A)(SH|SV|DH|DV|VV|HH|HV|VH)_([0-9]{8}T[0-9]{6})_([0-9]{8}T[0-9]{6})_([0-9]{6})_' \
+                 '([0-9A-F]{6})_([0-9A-F]{4}).zip$'
+    pattern_s2 = '^S2[AB]_(MSIL1C|MSIL2A)_([0-9]{8}T[0-9]{6})_N([0-9]{4})_R([0-9]{3})_' \
+                 'T([0-9A-Z]{5})_([0-9]{8}T[0-9]{6}).zip$'
+    scenes_s1 = finder(directory, [pattern_s1], recursive=True, regex=True)
+    scenes_s2 = finder(directory, [pattern_s2], recursive=True, regex=True)
 
     with Database(dbname, user=user, password=password, port=port) as db:
-        es1_colnames = {i.name: i.type for i in db.load_table('existings1').c}
-        es2_colnames = {i.name: i.type for i in db.load_table('existings2').c}
-
-        # if not (str(es1_colnames) == str(es2_colnames) and
-        #         str(es2_colnames) == "{'scene': VARCHAR(), 'outname_base': VARCHAR(), 'read_permission': INTEGER(),"
-        #                              " 'file_size_MB': INTEGER(), 'owner': VARCHAR()}"):
-            #print('Exists tables have changed!')
-
         orderly_exist_s1 = []
         for scene in scenes_s1:
             orderly_exist_s1.append({'scene': scene,
@@ -45,7 +41,6 @@ def filesweeper(directory, dbname='isos_db', user='user', password='password', p
                                      'file_size_MB': int(os.stat(scene).st_size / (1024 * 1024)),
                                      'owner': os.stat(scene).st_uid
                                      })
-        #print(orderly_exist_s1)
         orderly_exist_s2 = []
         for scene in scenes_s2:
             orderly_exist_s2.append({'scene': scene,
