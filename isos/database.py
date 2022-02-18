@@ -434,7 +434,7 @@ class Database(object):
 
         for entry in orderly_data:
             if reduce_entry:
-                entry = {key: entry[key] for key in col_names if hasattr(entry, key)}
+                entry = {key: entry[key] for key in col_names if key in entry}
 
             exists_str = exists()
             for p_key in primary_key:

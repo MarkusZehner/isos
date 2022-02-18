@@ -24,6 +24,7 @@ def testdata(testdir):
         's1_2': os.path.join(testdir, 'S1A_IW_GRDH_1SDV_20150222T170725_20150222T170750_004739_005DD8_CEAB.zip'),
         's2': os.path.join(testdir, 'S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.zip'),
         's2_2': os.path.join(testdir, 'S2B_MSIL2A_20220117T095239_N0301_R079_T33UYR_20220117T113605.zip'),
+        's2_3': os.path.join(testdir, 'S2A_MSIL1C_20191228T144721_N0208_R139_T19MGQ_20191228T163224.zip'),
         's1_dup': os.path.join(testdir, 'duplicates',
                                'S1A_IW_GRDH_1SDV_20150222T170750_20150222T170815_004739_005DD8_3768.zip'),
         's1_2_dup': os.path.join(testdir, 'duplicates',

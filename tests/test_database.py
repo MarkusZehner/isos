@@ -83,9 +83,11 @@ def test_archive(tmpdir, testdata, testdir):
         assert db.query_db('sentinel1data', ['sensor', '"orbitNumber_rel"'], acquisition_mode='IW',
                           lines=16685, vv=1) == [{'orbitNumber_rel': 117, 'sensor': 'S1A'}]
         db.ingest_s2_from_id(testdata['s2_dup'])
+        db.ingest_s2_from_id(testdata['s2_3'])
 
         assert db.count_scenes('sentinel2data') == \
-               [('S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.zip', 2)]
+               [('S2A_MSIL1C_20191228T144721_N0208_R139_T19MGQ_20191228T163224.zip', 1),
+                ('S2B_MSIL2A_20220117T095239_N0301_R079_T32QMG_20220117T113605.zip', 2)]
 
         es1_colnames = {i.name: i.type for i in db.load_table('existings1').c}
         es2_colnames = {i.name: i.type for i in db.load_table('existings2').c}
