@@ -51,6 +51,7 @@ def filewalker(directory, dbname='isos_db', user='user', password='password', po
                   orderly_data=orderly_exist_s1, update=update)
         db.insert(table='existings2', primary_key=db.get_primary_keys('existings2'),
                   orderly_data=orderly_exist_s2, update=update)
+        db.close()
 
 
 def ingest_from_exist_table(dbname='isos_db', user='user', password='password', port=8888, update=True):
@@ -85,6 +86,7 @@ def ingest_from_exist_table(dbname='isos_db', user='user', password='password', 
         for i in scene_dirs:
             ingest.append(i[0])
         db.ingest_s2_from_id(ingest, update=update)
+        db.close()
 
 
 def cronjob_task(directory, dbname, user, password, port, update=True):

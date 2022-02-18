@@ -51,14 +51,14 @@ def test_archive(tmpdir, testdata, testdir):
         db.ingest_s2_from_id(testdata['s2'])
         db.ingest_s1_from_id(testdata['s1'])
 
-        db.drop_element(testdata['s1'], 'duplicatesisos')
+        #db.drop_element(testdata['s1'], 'duplicatesisos')
 
         db.add_tables(mytable)
         assert db._Database__check_table_exists('mytable') is True
         assert 'mytable' in db.get_tablenames(return_all=True)
         db.drop_table('mytable')
         assert db._Database__check_table_exists('mytable') is False
-        assert db._Database__select_missing('duplicatesisos') == []
+        #assert db._Database__select_missing('duplicatesisos') == []
         db.cleanup()
 
         assert db.get_primary_keys('sentinel2data') == ['scene']
@@ -68,9 +68,9 @@ def test_archive(tmpdir, testdata, testdir):
         db.drop_element(testdata['s2'], 'sentinel2data')
         assert len(db.filter_scenelist([testdata['s2'], testdata['s2_2']], 'sentinel2data')) == 2
 
-        assert db.get_colnames('duplicatesisos') == ['outname_base', 'scene']
+        #assert db.get_colnames('duplicatesisos') == ['outname_base', 'scene']
 
-        assert db.size == (5, 1)  # 3 tables with combined 2 scenes ingested
+        assert db.size == (4, 1)  # 4 tables with combined 1 scenes ingested
         db.ingest_s2_from_id(testdata['s2'])
 
         assert db.query_db('sentinel2data', ['processing_level'], product_type='S2MSI2A') == \
@@ -94,7 +94,7 @@ def test_archive(tmpdir, testdata, testdir):
         assert str(es2_colnames) == "{'scene': VARCHAR(), 'outname_base': VARCHAR(), 'read_permission': " \
                                     "INTEGER(), 'file_size_MB': INTEGER(), 'owner': VARCHAR()}"
     print('works')
-    isos.filewalker.filesweeper(directory=testdir, user='markuszehner', password=pgpassword, port=pgport)
+    isos.search_and_deploy.filewalker(directory=testdir, user='markuszehner', password=pgpassword, port=pgport)
     isos.ingest_from_exist_table(user='markuszehner', password=pgpassword, port=pgport)
 
     print('test pyrosar compat')

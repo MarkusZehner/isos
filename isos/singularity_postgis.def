@@ -1,6 +1,0 @@
-Bootstrap: docker
-From: postgis/postgis:14-3.2
-
-%environment
-    export POSTGRES_
-    export POSTGRES_HOST_AUTH_METHOD=trust

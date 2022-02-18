@@ -1,9 +1,9 @@
 # drawn largely from the pyroSAR archive and rcm database, also ARD TDC
-import csv
 import importlib
 import inspect
 import subprocess
 from datetime import datetime
+from dateutil import parser
 import gc
 import os
 import re
@@ -349,7 +349,7 @@ class Database(object):
                 if str(coltypes.get(key)) in ['TIMESTAMP', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME']:
                     if value != '' and value:
                         try:
-                            temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
+                            temp_dict[key] = parser.parse(value)  # , '%Y-%m-%dT%H:%M:%SZ')
                         except ValueError:
                             try:
                                 temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')

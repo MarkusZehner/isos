@@ -1,9 +1,12 @@
-spatialist~=0.8.1
+spatialist~=0.9.0
 sqlalchemy~=1.4.29
 SQLAlchemy-Utils
 geoalchemy2>=0.6.3
-pyrosar~=0.15.1
+pyrosar~=0.10.2.dev598+g2b9c33f
 sentinelsat~=1.1.1
 shapely
 sentinelsat
 requests
+python-dateutil~=2.8.2
+pytest~=6.2.5
+setuptools~=60.5.0
