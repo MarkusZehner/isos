@@ -883,10 +883,11 @@ class Database(object):
                 id = scene
             else:
                 try:
-                    identify(scene)
+                    id = identify(scene)
                 except RuntimeError:
                     print(scene)
                     continue
+
             pols = [x.lower() for x in id.polarizations]
 
             temp_dict = {}
