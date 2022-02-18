@@ -951,7 +951,7 @@ class Database(object):
                 if str(coltypes.get(key)) in ['TIMESTAMP', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME']:
                     if value != '' and value:
                         try:
-                            temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+                            temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
                         except ValueError as e:
                             print(e)
                 if str(coltypes.get(key)) in ['geometry(POLYGON,4326)']:
