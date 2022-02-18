@@ -2,6 +2,9 @@ Bootstrap: library
 From: ubuntu:21.04
 Stage: build
 
+%files
+    isos_env.yml /home
+
 %post
     apt-get update && apt-get -y upgrade
     apt-get -y install \
@@ -14,7 +17,8 @@ Stage: build
     libxext6 \
     libsm6 \
     libxrender1 \
-    git
+    git \
+    libpq-dev
 
     ## Set locale
     locale-gen en_US.UTF-8
@@ -28,11 +32,23 @@ Stage: build
     #Installing Miniconda 3
     wget -c https://repo.anaconda.com/miniconda/Miniconda3-py39_4.10.3-Linux-x86_64.sh
     /bin/bash Miniconda3-py39_4.10.3-Linux-x86_64.sh -bfp /opt/miniconda3
-    #Conda configuration of channels from .condarc file
+    export PATH=/opt/miniconda3/bin:$PATH
+    rm Miniconda3-py39_4.10.3-Linux-x86_64.sh
+    echo ". /opt/miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
+    /opt/miniconda3/bin/conda init
     conda update -y -n base conda
     conda config --system --prepend channels conda-forge
     conda config --system --set auto_update_conda false
-    conda init
 
-%environment
-    export PATH="/opt/miniconda3/bin:$PATH"
+    #Creating env
+    conda env create --file /home/isos_env.yml
+
+    ## General cleanup
+    conda clean -y --all
+    apt-get -y autoremove --purge
+    apt-get -y clean
+    rm -rf /src
+
+    echo "conda activate isos_py_env" >> $SINGULARITY_ENVIRONMENT
+    conda install pip	
+    pip install git+https://github.com/MarkusZehner/isos.git

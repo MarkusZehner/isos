@@ -1,89 +1,111 @@
-# search partition for all S1, s2 raw data regularly,
-# get paths, store into database and check if some went missing
-#import os
-#from spatialist.ancillary import finder
-#from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
-
-
-# start or stop postgresql server
-#subprocess('pg_ctl -D /opt/homebrew/var/postgres start')
-
-#user = 'zehma'
-#password = os.getenv('sentinelsat_API_KEY')
-# find all s2l1c on one partition:
-
-
-
-# crontab every second day:
-# 0 0 2-30/2 * * /pathtopythonenv /command
-import sys
 import os
-
 from spatialist.ancillary import finder
-from isos import Database
-# from datetime import datetime
-# import os
+from .database import Database
 
 
-def main(directory, user=False):
+def filewalker(directory, dbname='isos_db', user='user', password='password', port=8888, update=True):
+    """
+    gets dir, searches for s1 and s2, stores into tables ExistS1/2 with note of readability
 
-    pguser = 'user'  # os.environ.get('PGUSER')
-    pgpassword = 'password'  # os.environ.get('PGPASSWORD')
-    pgport = 8888  # os.environ.get('PGPORT')
+    Parameters
+    ----------
+    directory: str
+        path to data to be searched
+    dbname: str
+        name of database, default 'isos_db'
+    user: str
+    password: str
+    port: int
+    update: bool
+        update the exists table, default true to be up to date
 
-    scenes_s1 = finder(directory, [r'^S1[AB].*\.zip'], recursive=True, regex=True)
-    scenes_s2 = finder(directory, [r'^S2[AB].*\.zip'], recursive=True, regex=True)
+    Returns
+    -------
+    """
+    pattern_s1 = '^S1[AB]_(S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_(SLC|GRD|OCN)(F|H|M|_)_' \
+                 '(1|2)(S|A)(SH|SV|DH|DV|VV|HH|HV|VH)_([0-9]{8}T[0-9]{6})_([0-9]{8}T[0-9]{6})_([0-9]{6})_' \
+                 '([0-9A-F]{6})_([0-9A-F]{4}).zip$'
+    pattern_s2 = '^S2[AB]_(MSIL1C|MSIL2A)_([0-9]{8}T[0-9]{6})_N([0-9]{4})_R([0-9]{3})_' \
+                 'T([0-9A-Z]{5})_([0-9]{8}T[0-9]{6}).zip$'
+    scenes_s1 = finder(directory, [pattern_s1], recursive=True, regex=True)
+    scenes_s2 = finder(directory, [pattern_s2], recursive=True, regex=True)
 
-    with Database('isos_db', user=pguser, password=pgpassword, port=pgport) as db:
-        db.ingest_s1_from_id(scenes_s1)
-        db.ingest_s2_from_id(scenes_s2)
-        count1 = db.count_scenes('sentinel1data')
-        print(count1)
-        count2 = db.count_scenes('sentinel2data')
-        print(count2)
+    with Database(dbname, user=user, password=password, port=port) as db:
+        orderly_exist_s1 = []
+        for scene in scenes_s1:
+            orderly_exist_s1.append({'scene': scene,
+                                     'outname_base': os.path.basename(scene),
+                                     'read_permission': int(os.access(scene, os.R_OK)),
+                                     'file_size_MB': int(os.stat(scene).st_size / (1024 * 1024)),
+                                     'owner': os.stat(scene).st_uid
+                                     })
+        orderly_exist_s2 = []
+        for scene in scenes_s2:
+            orderly_exist_s2.append({'scene': scene,
+                                     'outname_base': os.path.basename(scene),
+                                     'read_permission': int(os.access(scene, os.R_OK)),
+                                     'file_size_MB': int(os.stat(scene).st_size / (1024 * 1024)),
+                                     'owner': os.stat(scene).st_uid})
 
-
-
-
-#
-#
-#
-# def write_file(filename, data):
-#     if os.path.isfile(filename):
-#         with open(filename, 'a') as f:
-#             f.write('\n' + data)
-#     else:
-#         with open(filename, 'w') as f:
-#             f.write(data)
-#
-#
-# def print_time():
-#     now = datetime.now()
-#     current_time = now.strftime("%H:%M:%S")
-#     data = "Current Time = " + current_time
-#     return data
-#
-#
-# write_file('test.txt', print_time())
-
-if __name__ == "__main__":
-    directory = sys.argv[1]
-    print(directory)
-    main(directory)
-
-# optimally use extent to see where the data is, to be searchable by sensor, metadata and area
-
-# additionally, orchestrate downloads from asf and copernicushub
-
-
-# dl from copernicushub via sentinelsat
+        db.insert(table='existings1', primary_key=db.get_primary_keys('existings1'),
+                  orderly_data=orderly_exist_s1, update=update)
+        db.insert(table='existings2', primary_key=db.get_primary_keys('existings2'),
+                  orderly_data=orderly_exist_s2, update=update)
 
 
-#api = SentinelAPI(user, password, 'https://apihub.copernicus.eu/apihub')
-#footprint = geojson_to_wkt(read_geojson('/Users/markuszehner/Documents/hainich/Hainich_bbox_wgs84_simple.geojson'))
-#products = api.query(footprint,
-#                     date = ('20151219', '20151229'),
-#                     platformname = 'Sentinel-2',
-#                     cloudcoverpercentage = (0, 30))
-#api.download_all(products, directory_path=directory_path)
+def ingest_from_exist_table(dbname='isos_db', user='user', password='password', port=8888, update=True):
+    """
+    gets data from exists tables with read permission and ingests the metadata into the according tables
+
+    Parameters
+    ----------
+    dbname: str
+        name of database, default 'isos_db'
+    user: str
+    password: str
+    port: int
+    update: bool
+        update the exists table, default true to be up to date
+
+    Returns
+    -------
+    """
+
+    with Database(dbname, user=user, password=password, port=port) as db:
+        session = db.Session()
+        scene_dirs = session.query(db.load_table('existings1').c.scene).filter(
+            db.load_table('existings1').c.read_permission == 1).all()
+        ingest = []
+        for i in scene_dirs:
+            ingest.append(i[0])
+        db.ingest_s1_from_id(ingest, update=update)
+        scene_dirs = session.query(db.load_table('existings2').c.scene).filter(
+            db.load_table('existings2').c.read_permission == 1).all()
+        ingest = []
+        for i in scene_dirs:
+            ingest.append(i[0])
+        db.ingest_s2_from_id(ingest, update=update)
+
+
+def cronjob_task(directory, dbname, user, password, port, update=True):
+    """
+    function to run the periodic table update
+
+    Parameters
+    ----------
+    directory: str
+        path to data to be searched
+    dbname: str
+        name of database, default 'isos_db'
+    user: str
+    password: str
+    port: int
+    update: bool
+        update the exists table, default true to be up to date
+
+    Returns
+    -------
+    """
+    filewalker(directory, dbname, user, password, port, update)
+    ingest_from_exist_table(dbname, user, password, port, update)
 

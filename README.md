@@ -38,12 +38,12 @@ Place the provided environment at /aux/testsingenv.yml in the same folder with t
 create folders isos_scripts, pg_run, and pg_data. 
 Then run following to create the singularity containers:
 
-    $ singularity build (--sandbox) isos_postgres.sif py_sing_second_try.def
-    $ singularity build (--sandbox) isos_postgres.sif postgis.def
+    $ singularity build (--sandbox) isos_py.sif isos_py.def
+    $ singularity build (--sandbox) isos_postgres.sif isos_postgres.def
 
 Run the containers:
 
-    $ nohup singularity run  -c --bind pg_data:/var/lib/postgresql/data,pg_run:/run/postgresql/ isos_postgres_container.sif &
+    $ nohup singularity run  -c --bind pg_data:/var/lib/postgresql/data,pg_run:/run/postgresql/ isos_postgres.sif &
     $ singularity exec -e -c --bind /isos_scripts:/tmp,/search_dir:/search_dir /isos_py.sif bash /tmp/exec_script.sh /search_dir/ dbname user 1234 8888
 
 Manual Installation via pip:

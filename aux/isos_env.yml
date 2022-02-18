@@ -165,4 +165,4 @@ dependencies:
     - sqlalchemy-utils==0.38.2
     - tqdm==4.62.3
     - urllib3==1.25.11
-prefix: /opt/homebrew/Caskroom/miniforge/base/envs/isos_py_env
+

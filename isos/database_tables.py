@@ -172,14 +172,14 @@ class Sentinel1Data(Base):
     geometry = Column(Geometry(geometry_type='POLYGON', management=True, srid=4326))
 
 
-class DuplicatesIsos(Base):
-    """
-    should stay empty because of the complete path as primary key!
-    """
-    __tablename__ = 'duplicatesisos'
-
-    scene = Column(String, primary_key=True)
-    outname_base = Column(String)
+# class DuplicatesIsos(Base):
+#     """
+#     should stay empty because of the complete path as primary key!
+#     """
+#     __tablename__ = 'duplicatesisos'
+#
+#     scene = Column(String, primary_key=True)
+#     outname_base = Column(String)
 
 
 class ExistingS1(Base):

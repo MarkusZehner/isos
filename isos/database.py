@@ -9,34 +9,27 @@ import os
 import re
 import shutil
 import sys
+import socket
+import time
+import logging
+import progressbar as pb
+from pathlib import Path
+from osgeo import gdal
 
-import progressbar as pb  # use tqdm?
+from spatialist import Vector
+from pyroSAR.drivers import identify, ID
 
-from spatialist import crsConvert, sqlite3, Vector, bbox
-from spatialist.ancillary import parse_literal, finder
-
-from sqlalchemy import create_engine, Table, MetaData, exists, and_, Column, Integer, String, exc
+from sqlalchemy import create_engine, Table, MetaData, exists
 from sqlalchemy import inspect as sql_inspect
-from sqlalchemy.event import listen
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import select, func
+from sqlalchemy.sql import func
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy_utils import database_exists, create_database, drop_database
 from geoalchemy2 import WKTElement
 
-from pyroSAR.drivers import identify, identify_many, ID
-from spatialist.ancillary import finder
 from .database_tables import *  # needs to stay here to create tables
 
-from pathlib import Path
-from osgeo import gdal
-
-import socket
-import time
-import platform
-
-import logging
 
 log = logging.getLogger(__name__)
 
@@ -92,9 +85,7 @@ class Database(object):
         # create Session (ORM) and get metadata
         self.Session = sessionmaker(bind=self.engine)
         self.meta = MetaData(self.engine)
-
         self.add_tables(tables_to_create())
-
         # reflect tables from (by now) existing db, make some variables available within self
         self.Base = automap_base(metadata=self.meta)
         self.Base.prepare(self.engine, reflect=True)
@@ -105,15 +96,43 @@ class Database(object):
             self.cleanup()
             sys.stdout.flush()
 
+    # Table creation and addressing stuff
+    def get_class_by_tablename(self, table):
+        """Return class reference mapped to table.
+        adapted from OrangeTux's comment on
+        https://stackoverflow.com/questions/11668355/sqlalchemy-get-model-from-table-name-this-may-imply-appending-some-function-to
+        Parameters
+        ----------
+        table: str
+            String with name of table.
+        Returns
+        -------
+        Class reference or None.
+        """
+        for c in self.Base.classes:
+            if hasattr(c, '__table__') and str(c.__table__) == table:
+                return c
+
+    def load_table(self, table):
+        """
+        helper function
+        load a table per `sqlalchemy.Table`
+
+        Parameters
+        ----------
+        table: str
+            name of table to be loaded
+
+        Returns
+        -------
+        sqlalchemy.Table
+        """
+        return Table(table.lower(), self.meta, autoload=True, autoload_with=self.engine)
+
     def add_tables(self, tables):
         """
         Add tables to the database per :class:`sqlalchemy.schema.Table`
         Tables provided here will be added to the database.
-
-        .. note::
-
-            Columns using Geometry must have setting management=True for SQLite,
-            for example: ``bbox = Column(Geometry('POLYGON', management=True, srid=4326))``
 
         Parameters
         ----------
@@ -137,54 +156,6 @@ class Database(object):
         self.Base = automap_base(metadata=self.meta)
         self.Base.prepare(self.engine, reflect=True)
 
-    def load_table(self, tablename):
-        """
-        helper function
-        load a table per `sqlalchemy.Table`
-        """
-        return Table(tablename.lower(), self.meta, autoload=True, autoload_with=self.engine)
-
-    def __select_missing(self, table):
-        """
-        Returns
-        -------
-        list
-            the names of all scenes, which are no longer stored in their registered location in requested table
-        """
-        table_schema = self.load_table(table)
-
-        scenes = self.Session().query(table_schema.c.scene)
-        files = [self.encode(x[0]) for x in scenes]
-        return [x for x in files if not os.path.isfile(x)]
-
-    def __prepare_update(self, table, primary_key, verbose=False, **args):
-        """
-        generic update string generator for tables
-        Parameters
-        ----------
-        table: str
-            table for which insertion string should be created
-        primary_key: list of str
-            primary key of table within list, or combined key as list of keys
-        verbose: bool
-            print additional info
-
-        Returns
-        -------
-        insertion string
-        """
-        if self.__check_table_exists(table):
-            col_names = self.get_colnames(table)
-            arg_invalid = [x for x in args.keys() if x not in col_names]
-            if len(arg_invalid) > 0:
-                if verbose:
-                    print('Following arguments {} were not ingested in table {}'.format(', '.join(arg_invalid), table))
-            update = self.meta.tables[table].update()
-            for p_key in primary_key:
-                update = update.where(self.meta.tables[table].c[p_key] == args[p_key])
-            update = update.values(**args)
-            return update
-
     def __check_table_exists(self, table):
         """
         returns true if table exists
@@ -199,13 +170,231 @@ class Database(object):
         """
         tables = self.get_tablenames(return_all=True)
         if table not in tables:
-            print('Table {} does not exist in the database {}'.format(table, self.dbname))
+            log.info('Table {} does not exist in the database {}'.format(table, self.dbname))
             return False
         return True
 
+    # Insert data and preparation stuff
+    def __prepare_update(self, table, primary_key, verbose=False, **args):
+        """
+        generic update string generator for tables
+        Parameters
+        ----------
+        table: str
+            table for which insertion string should be created
+        primary_key: list of str
+            primary key of table within list, or combined key as list of keys
+        verbose: bool
+            log additional info
+
+        Returns
+        -------
+        insertion string
+        """
+        if self.__check_table_exists(table):
+            col_names = self.get_colnames(table)
+            arg_invalid = [x for x in args.keys() if x not in col_names]
+            if len(arg_invalid) > 0:
+                if verbose:
+                    log.info('Following arguments {} were not ingested in table {}'.format(', '.join(arg_invalid), table))
+            update = self.meta.tables[table].update()
+            for p_key in primary_key:
+                update = update.where(self.meta.tables[table].c[p_key] == args[p_key])
+            update = update.values(**args)
+            return update
+
+    def __select_missing(self, table):
+        """
+        Parameters
+        ----------
+        table: str
+            Table to query
+        Returns
+        -------
+        list
+            the names of all scenes, which are no longer stored in their registered location in requested table
+        """
+        table_schema = self.load_table(table)
+
+        scenes = self.Session().query(table_schema.c.scene)
+        files = [self.encode(x[0]) for x in scenes]
+        return [x for x in files if not os.path.isfile(x)]
+
+    def identify_sentinel2_from_folder(self, scene_dirs):
+        """
+        Method to open Sentinel-2 .zips with the vsizip in GDAL to read out metadata and ingest them in the
+        table sentinel2data.
+
+        Parameters
+        ----------
+        scene_dirs: str or list of str
+            list of Sentinel-2 zip paths
+
+        Returns
+        -------
+        list of dict
+            orderly data from __refactor_sentinel2data
+        """
+        metadata = []
+        tmp = os.environ.get('CPL_ZIP_ENCODING')
+        os.environ['CPL_ZIP_ENCODING'] = 'UTF-8'
+        if isinstance(scene_dirs, str):
+            scene_dirs = [scene_dirs]
+
+        for filename in scene_dirs:
+            if filename.endswith('.incomplete'):
+                continue
+            name_dot_safe = Path(filename).stem + '.SAFE'
+            xml_file = None
+            if name_dot_safe[4:10] == 'MSIL2A':
+                xml_file = gdal.Open(
+                    '/vsizip/' + os.path.join(filename, name_dot_safe, 'MTD_MSIL2A.xml'))
+
+            elif name_dot_safe[4:10] == 'MSIL1C':
+                xml_file = gdal.Open(
+                    '/vsizip/' + os.path.join(filename, name_dot_safe, 'MTD_MSIL1C.xml'))
+            # this way we can open most raster formats and read metadata this way, just adjust the ifs..
+
+            if xml_file:
+                metadata.append([filename, xml_file])
+                xml_file = None
+        orderly_data = self.__refactor_sentinel2data(metadata)
+        return orderly_data
+
+    def parse_id(self, scenes):
+        """
+        Helper method to refactor Sentinel-1 id objects, make keys lower, replace ' ' by '_',
+        make values the right unit types.
+        ----------
+        scenes: list of str
+            s1 id objects
+        Returns
+        -------
+        list of dict
+            reformatted data
+        """
+        table_schema_cols = self.load_table('sentinel1data').c
+        coltypes = {}
+        for i in table_schema_cols:
+            coltypes[i.name] = i.type
+
+        orderly_data = []
+
+        if not isinstance(scenes, list):
+            scenes = [scenes]
+
+        for scene in scenes:
+            if isinstance(scene, ID):
+                id = scene
+            else:
+                try:
+                    id = identify(scene)
+                except RuntimeError:
+                    print(scene)
+                    continue
+
+            pols = [x.lower() for x in id.polarizations]
+
+            temp_dict = {}
+            for attribute in list(coltypes.keys()):
+                if attribute == 'outname_base':
+                    temp_dict[attribute] = id.outname_base()
+                elif attribute in ['bbox', 'geometry']:
+                    geom = getattr(id, attribute)()
+                    geom.reproject(4326)
+                    geom = geom.convert2wkt(set3D=False)[0]
+                    temp_dict[attribute] = 'SRID=4326;' + str(geom)
+                elif attribute in ['hh', 'vv', 'hv', 'vh']:
+                    temp_dict[attribute] = int(attribute in pols)
+                else:
+                    if hasattr(id, attribute):
+                        temp_dict[attribute] = getattr(id, attribute)
+                    elif attribute in id.meta.keys():
+                        temp_dict[attribute] = id.meta[attribute]
+                    else:
+                        raise AttributeError('could not find attribute {}'.format(attribute))
+            orderly_data.append(temp_dict)
+        return orderly_data
+
+    def __refactor_sentinel2data(self, metadata_as_list_of_dicts):
+        """
+        Helper method to refactor Sentinel-2 metadata dicts, make keys lower, replace ' ' by '_',
+        make values the right unit types. Add outname base from first field in list.
+        Parameters
+        ----------
+        metadata_as_list_of_dicts: list of [str, dict]
+            s2 metadata
+        Returns
+        -------
+        list of dict
+            reformatted data
+        """
+        # table_schema_cols = self.load_table('sentinel2data').c
+        # coltypes = {}
+        # for i in table_schema_cols:
+        #     coltypes[i.name] = i.type
+        coltypes = {i.name: i.type for i in self.load_table('sentinel2data').c}
+
+        orderly_data = []
+        for entry in metadata_as_list_of_dicts:
+            temp_dict = {}
+            for key, value in entry[1].GetMetadata().items():
+                key = key.lower().replace(' ', '_')
+                if str(coltypes.get(key)) == 'VARCHAR':
+                    temp_dict[key] = value
+                if str(coltypes.get(key)) == 'INTEGER':
+                    temp_dict[key] = int(value.replace('.0', ''))
+                if str(coltypes.get(key)) in ['DOUBLE PRECISION', 'FLOAT', 'DOUBLE_PRECISION']:
+                    temp_dict[key] = float(value)
+                if str(coltypes.get(key)) in ['TIMESTAMP', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME']:
+                    if value != '' and value:
+                        try:
+                            temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
+                        except ValueError:
+                            try:
+                                temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+                            except ValueError:
+                                print(entry)
+                                print(coltypes)
+                if str(coltypes.get(key)) in ['geometry(POLYGON,4326)']:
+                    temp_dict[key] = WKTElement(value, srid=4326)
+
+            temp_dict['outname_base'] = os.path.basename(entry[0])
+            temp_dict['scene'] = entry[0]
+            orderly_data.append(temp_dict)
+        return orderly_data
+
+    def ingest_s1_from_id(self, scene_dirs, update=False, verbose=False):
+
+        orderly_data = self.parse_id(scene_dirs)
+
+        self.insert(table='sentinel1data', primary_key=self.get_primary_keys('sentinel1data'),
+                    orderly_data=orderly_data, verbose=verbose, update=update)
+
+    def ingest_s2_from_id(self, scene_dirs, update=False, verbose=False):
+        """
+        ingest Sentinel-2 .zips into table sentinel2data.
+
+        Parameters
+        ----------
+        scene_dirs: str or list of str
+            list of Sentinel-2 zip paths
+        update: bool
+            update database? will update matching entries
+        verbose: bool
+            log additional info
+
+        Returns
+        -------
+        """
+        orderly_data = self.identify_sentinel2_from_folder(scene_dirs)
+
+        self.insert(table='sentinel2data', primary_key=self.get_primary_keys('sentinel2data'),
+                    orderly_data=orderly_data, verbose=verbose, update=update)
+
     def insert(self, table, primary_key, orderly_data, verbose=False, update=False):
         """
-        generic inserter for tables, checks if entry is already in db,
+        Generic insert for tables, checks if entry is already in db,
         update can be used to overwrite all concerning entries
         Parameters
         ----------
@@ -216,7 +405,7 @@ class Database(object):
         orderly_data: list of dicts
             list of dicts created by xx_01.loadwd.make_a_list
         verbose: bool
-            print additional info
+            log additional info
         update: bool
             update database? will update all entries given in orderly_data
 
@@ -226,7 +415,7 @@ class Database(object):
 
         """
         if len(orderly_data) == 0:
-            print(f'no scenes found for table {table}!')
+            log.info(f'no scenes found for table {table}!')
             return
 
         self.Base = automap_base(metadata=self.meta)
@@ -264,18 +453,14 @@ class Database(object):
         if len(rejected) > 0:
             if verbose:
                 if update:
-                    print('Updated entries with already existing primary key: ', rejected)
+                    log.info('Updated entries with already existing primary key: ', rejected)
                 else:
-                    print('Rejected entries with already existing primary key: ', rejected)
+                    log.info('Rejected entries with already existing primary key: ', rejected)
             if update:
                 message += ', updated {} (already existing).'.format(len(rejected))
             else:
                 message += ', rejected {} (already existing).'.format(len(rejected))
-            # if not table == 'duplicates':  # this has no use with absolute paths as prim keys
-            #     self.insert('duplicates', self.get_primary_keys('duplicates'), rejected)
-            # else:
-            #     print('Rejected entries to Duplicates with already existing primary key: ', rejected)
-        print(message)
+        log.info(message)
         session.close()
 
     def is_registered(self, scene, table):
@@ -314,19 +499,6 @@ class Database(object):
             return True
         return False
 
-        # # ORM query, where scene equals id.scene, return first
-        # exists_data = self.Session().query(self.Data.outname_base).filter(
-        #     self.Data.outname_base == id.outname_base()).first()
-        # exists_duplicates = self.Session().query(self.Duplicates.outname_base).filter(
-        #     self.Duplicates.outname_base == id.outname_base()).first()
-        # in_data = False
-        # in_dup = False
-        # if exists_data:
-        #     in_data = len(exists_data) != 0
-        # if exists_duplicates:
-        #     in_dup = len(exists_duplicates) != 0
-        # return in_data or in_dup
-
     def cleanup(self):
         """
         Remove all scenes from the database, which are no longer stored in their registered location
@@ -340,6 +512,7 @@ class Database(object):
                 log.info('Removing missing scene from database tables: {}'.format(scene))
                 self.drop_element(scene, table)
 
+    # misc methods
     @staticmethod
     def encode(string, encoding='utf-8'):
         if not isinstance(string, str):
@@ -375,17 +548,16 @@ class Database(object):
         dirname = os.path.dirname(path)
         os.makedirs(dirname, exist_ok=True)
 
-        # uses spatialist.ogr2ogr to write shps with given path (or db connection)
         db_connection = """PG:host={0} port={1} user={2}
             dbname={3} password={4} active_schema=public""".format(self.url_dict['host'],
                                                                    self.url_dict['port'],
                                                                    self.url_dict['username'],
                                                                    self.url_dict['database'],
                                                                    self.url_dict['password'])
-        # ogr2ogr(db_connection, path, options={'format': 'ESRI Shapefile'})
         subprocess.call(['ogr2ogr', '-f', 'ESRI Shapefile', path,
                          db_connection, table])
 
+    # utilities
     def filter_scenelist(self, scenelist, table):
         """
         Filter a list of scenes by file names already registered in the database.
@@ -412,17 +584,20 @@ class Database(object):
         filtered = [x for x, y in zip(scenelist, names) if os.path.basename(y) not in registered]
         return filtered
 
-    def get_colnames(self, table='data'):
+    def get_colnames(self, table):
         """
         Return the names of all columns of a table.
+        Parameters
+        ----------
+        table: str
+            tablename
         Returns
         -------
         list
             the column names of the chosen table
         """
-        # get all columns of one table, but shows geometry columns not correctly
-        table_schema = self.load_table(table)
-        col_names = table_schema.c.keys()
+        dicts = sql_inspect(self.engine).get_columns(table)
+        col_names = [i['name'] for i in dicts]
 
         return sorted([self.encode(x) for x in col_names])
 
@@ -443,7 +618,8 @@ class Database(object):
         #  the method was intended to only return user generated tables by default, as well as data and duplicates
         all_tables = ['spatial_ref_sys']
         # get tablenames from metadata
-        tables = sorted([self.encode(x) for x in self.meta.tables.keys()])
+        insp = sql_inspect(self.engine)
+        tables = sorted([self.encode(x) for x in insp.get_table_names()])
         if return_all:
             return tables
         else:
@@ -482,8 +658,8 @@ class Database(object):
             the directory names
         """
         # ORM query, get all directories
-        table_schema = self.load_table(table)
-        scenes = self.Session().query(table_schema.c.scene)
+        table = self.get_class_by_tablename(table)
+        scenes = self.Session().query(table.scene)
         registered = [os.path.dirname(self.encode(x[0])) for x in scenes]
         return list(set(registered))
 
@@ -559,7 +735,7 @@ class Database(object):
         date: str or list
             either one date or a range from - to in a list
         verbose: bool
-            print additional info
+            log additional info
         **args:
             any further arguments (columns), which are registered in the database.
             See :meth:`~RCMArchive.archive.get_colnames()`
@@ -575,7 +751,7 @@ class Database(object):
         # check if table is empty
         if len([{column: value for column, value in rowproxy.items()}
                 for rowproxy in self.conn.execute('SELECT True FROM {} LIMIT 1;'.format(table))]) == 0:
-            print('Table {} is empty!'.format(table))
+            log.info('Table {} is empty!'.format(table))
             return []
         col_names = self.get_colnames(table)
 
@@ -596,16 +772,16 @@ class Database(object):
         arg_valid = [x for x in args.keys() if x in col_names]
         arg_invalid = [x for x in args.keys() if x not in col_names]
         if len(arg_invalid) > 0:
-            print('the following arguments will be ignored as they are not registered in the data base: {}'.format(
-                ', '.join(arg_invalid)))
+            log.info('the following arguments will be ignored as they are not registered in the data base: {}'.format(
+                     ', '.join(arg_invalid)))
 
         if selected_columns != '*':
             if isinstance(selected_columns, str):
                 selected_columns = [selected_columns]
             sel_col_invalid = [x for x in selected_columns if x not in col_names]
             if len(sel_col_invalid) > 0:
-                print('the following selected columns will be ignored '
-                      'as they are not registered in the table: {}'.format(', '.join(sel_col_invalid)))
+                log.info('the following selected columns will be ignored '
+                         'as they are not registered in the table: {}'.format(', '.join(sel_col_invalid)))
         arg_format = []
         vals = []
 
@@ -622,13 +798,13 @@ class Database(object):
                     arg_format.append('start>=?')
                     vals.append(args[key])
                 else:
-                    print('WARNING: argument mindate is ignored, must be in format YYYYmmddTHHMMSS')
+                    log.info('WARNING: argument mindate is ignored, must be in format YYYYmmddTHHMMSS')
             if key == 'maxdate':
                 if re.search('[0-9]{8}T[0-9]{6}', args[key]):
                     arg_format.append('stop<=?')
                     vals.append(args[key])
                 else:
-                    print('WARNING: argument maxdate is ignored, must be in format YYYYmmddTHHMMSS')
+                    log.info('WARNING: argument maxdate is ignored, must be in format YYYYmmddTHHMMSS')
 
         if vectorobject and geom_col_name:
             if isinstance(vectorobject, Vector):
@@ -640,7 +816,7 @@ class Database(object):
                     site_geom
                 ))
             else:
-                print('WARNING: argument vectorobject is ignored, must be of type spatialist.vector.Vector. '
+                log.info('WARNING: argument vectorobject is ignored, must be of type spatialist.vector.Vector. '
                       'Check also if table has geom column!')
 
         query = '''SELECT {} FROM {}'''.format(', '.join(selected_columns), table)
@@ -650,7 +826,7 @@ class Database(object):
         for val in vals:
             query = query.replace('?', ''' '{0}' ''', 1).format(val)
         if verbose:
-            print(query)
+            log.info(query)
         # core SQL execution
         query_rs = self.conn.execute(query)
         return [{column: value for column, value in rowproxy.items()} for rowproxy in query_rs]
@@ -676,6 +852,41 @@ class Database(object):
         session.close()
         return len(tables), num
 
+    def count_scenes(self, table):
+        """
+        returns basename and count of ingested scenes from the requested table
+
+        Parameters
+        ----------
+        table: str
+            table name
+        Returns
+        -------
+        """
+        if not self.__check_table_exists(table):
+            log.info(f'table {table} not in database')
+        else:
+            table_schema = self.load_table(table)
+            session = self.Session()
+            ret = session.query(table_schema.c.outname_base, func.count(table_schema.c.outname_base)).\
+                group_by(table_schema.c.outname_base).all()
+            return ret
+
+    def count_permission_state(self, table):
+        """
+        returns nr of readable files from the requested table
+
+        Parameters
+        ----------
+        table: str
+            table name
+        Returns
+        -------
+        """
+        ret = self.Session().query(func.sum(self.load_table(table).c.read_permission))
+        return ret.scalar()
+
+    # Database utilities
     def __enter__(self):
         return self
 
@@ -697,8 +908,8 @@ class Database(object):
         If duplicates table contains matching entry, it will be moved to the data table.
         Parameters
         ----------
-        scene: ID
-            a SAR scene
+        scene: str
+            path of scene
         table: str
             name of table to drop element from
         Returns
@@ -706,19 +917,12 @@ class Database(object):
         """
         # save outname_base from to be deleted entry
         table_schema = self.load_table(table)
-        # search = table_schema.select().where(table_schema.c.scene == scene)
-        # entry_data_outname_base = []
-        # for rowproxy in self.conn.execute(search):
-        #     print(rowproxy)
-        #     entry_data_outname_base.append((rowproxy[12]))
-        # log.info(entry_data_outname_base)
 
         # delete entry in data table
         delete_statement = table_schema.delete().where(table_schema.c.scene == scene)
         self.conn.execute(delete_statement)
 
-        return_sentence = 'Entry with scene-id: \n{} \nwas dropped from data'.format(scene)
-        log.info(return_sentence + '!')
+        log.info('Entry with scene-id: \n{} \nwas dropped from data!'.format(scene))
 
     def drop_table(self, table):
         """
@@ -794,208 +998,6 @@ class Database(object):
                 time.sleep(5)
         return ipup
 
-    def identify_sentinel2_from_folder(self, scene_dirs):
-        """
-        Method to open Sentinel-2 .zips with the vsizip in GDAL to read out metadata and ingest them in the
-        table sentinel2data.
-
-        Parameters
-        ----------
-        scene_dirs: str or list of str
-            list of Sentinel-2 zip paths
-
-        Returns
-        -------
-        list of dict
-            orderly data from __refactor_sentinel2data
-        """
-        metadata = []
-        tmp = os.environ.get('CPL_ZIP_ENCODING')
-        os.environ['CPL_ZIP_ENCODING'] = 'UTF-8'
-        if isinstance(scene_dirs, str):
-            scene_dirs = [scene_dirs]
-
-        for filename in scene_dirs:
-            if filename.endswith('.incomplete'):
-                continue
-            name_dot_safe = Path(filename).stem + '.SAFE'
-            xml_file = None
-            if name_dot_safe[4:10] == 'MSIL2A':
-                xml_file = gdal.Open(
-                    '/vsizip/' + os.path.join(filename, name_dot_safe, 'MTD_MSIL2A.xml'))
-
-            elif name_dot_safe[4:10] == 'MSIL1C':
-                xml_file = gdal.Open(
-                    '/vsizip/' + os.path.join(filename, name_dot_safe, 'MTD_MSIL1C.xml'))
-            # this way we can open most raster formats and read metadata this way, just adjust the ifs..
-
-            if xml_file:
-                metadata.append([filename, xml_file])
-                xml_file = None
-        orderly_data = self.__refactor_sentinel2data(metadata)
-        return orderly_data
-
-    def ingest_s2_from_id(self, scene_dirs, update=False, verbose=False):
-        """
-        ingest Sentinel-2 .zips into table sentinel2data.
-
-        Parameters
-        ----------
-        scene_dirs: str or list of str
-            list of Sentinel-2 zip paths
-        update: bool
-            update database? will update matching entries
-        verbose: bool
-            print additional info
-
-        Returns
-        -------
-        """
-        orderly_data = self.identify_sentinel2_from_folder(scene_dirs)
-
-        self.insert(table='sentinel2data', primary_key=self.get_primary_keys('sentinel2data'),
-                    orderly_data=orderly_data, verbose=verbose, update=update)
-
-    def parse_id(self, scenes):
-        """
-        Helper method to refactor Sentinel-1 id objects, make keys lower, replace ' ' by '_',
-        make values the right unit types.
-        ----------
-        scenes: list of str
-            s1 id objects
-        Returns
-        -------
-        list of dict
-            reformatted data
-        """
-        table_schema_cols = self.load_table('sentinel1data').c
-        coltypes = {}
-        for i in table_schema_cols:
-            coltypes[i.name] = i.type
-
-        orderly_data = []
-
-        if not isinstance(scenes, list):
-            scenes = [scenes]
-
-        for scene in scenes:
-            if isinstance(scene, ID):
-                id = scene
-            else:
-                try:
-                    id = identify(scene)
-                except RuntimeError:
-                    print(scene)
-                    continue
-
-            pols = [x.lower() for x in id.polarizations]
-
-            temp_dict = {}
-            for attribute in list(coltypes.keys()):
-                if attribute == 'outname_base':
-                    temp_dict[attribute] = id.outname_base()
-                elif attribute in ['bbox', 'geometry']:
-                    geom = getattr(id, attribute)()
-                    geom.reproject(4326)
-                    geom = geom.convert2wkt(set3D=False)[0]
-                    temp_dict[attribute] = 'SRID=4326;' + str(geom)
-                elif attribute in ['hh', 'vv', 'hv', 'vh']:
-                    temp_dict[attribute] = int(attribute in pols)
-                else:
-                    if hasattr(id, attribute):
-                        temp_dict[attribute] = getattr(id, attribute)
-                    elif attribute in id.meta.keys():
-                        temp_dict[attribute] = id.meta[attribute]
-                    else:
-                        raise AttributeError('could not find attribute {}'.format(attribute))
-            orderly_data.append(temp_dict)
-        return orderly_data
-
-    def ingest_s1_from_id(self, scene_dirs, update=False, verbose=False):
-
-        orderly_data = self.parse_id(scene_dirs)
-
-        self.insert(table='sentinel1data', primary_key=self.get_primary_keys('sentinel1data'),
-                    orderly_data=orderly_data, verbose=verbose, update=update)
-
-    def __refactor_sentinel2data(self, metadata_as_list_of_dicts):
-        """
-        Helper method to refactor Sentinel-2 metadata dicts, make keys lower, replace ' ' by '_',
-        make values the right unit types. Add outname base from first field in list.
-        Parameters
-        ----------
-        metadata_as_list_of_dicts: list of [str, dict]
-            s2 metadata
-        Returns
-        -------
-        list of dict
-            reformatted data
-        """
-        # table_schema_cols = self.load_table('sentinel2data').c
-        # coltypes = {}
-        # for i in table_schema_cols:
-        #     coltypes[i.name] = i.type
-        coltypes = {i.name: i.type for i in self.load_table('sentinel2data').c}
-
-        orderly_data = []
-        for entry in metadata_as_list_of_dicts:
-            temp_dict = {}
-            for key, value in entry[1].GetMetadata().items():
-                key = key.lower().replace(' ', '_')
-                if str(coltypes.get(key)) == 'VARCHAR':
-                    temp_dict[key] = value
-                if str(coltypes.get(key)) == 'INTEGER':
-                    temp_dict[key] = int(value.replace('.0', ''))
-                if str(coltypes.get(key)) in ['DOUBLE PRECISION', 'FLOAT', 'DOUBLE_PRECISION']:
-                    temp_dict[key] = float(value)
-                if str(coltypes.get(key)) in ['TIMESTAMP', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME']:
-                    if value != '' and value:
-                        try:
-                            temp_dict[key] = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
-                        except ValueError as e:
-                            print(e)
-                if str(coltypes.get(key)) in ['geometry(POLYGON,4326)']:
-                    temp_dict[key] = WKTElement(value, srid=4326)
-
-            temp_dict['outname_base'] = os.path.basename(entry[0])
-            temp_dict['scene'] = entry[0]
-            orderly_data.append(temp_dict)
-        return orderly_data
-
-    def count_scenes(self, table):
-        """
-        returns basename and count of ingested scenes from the requested table
-
-        Parameters
-        ----------
-        table: str
-            table name
-        Returns
-        -------
-        """
-        if not self.__check_table_exists(table):
-            print(f'table {table} not in database')
-        else:
-            table_schema = self.load_table(table)
-            session = self.Session()
-            ret = session.query(table_schema.c.outname_base, func.count(table_schema.c.outname_base)).\
-                group_by(table_schema.c.outname_base).all()
-            return ret
-
-    def count_permission_state(self, table):
-        """
-        returns nr of readable files from the requested table
-
-        Parameters
-        ----------
-        table: str
-            table name
-        Returns
-        -------
-        """
-        ret = self.Session().query(func.sum(self.load_table(table).c.read_permission))
-        return ret.scalar()
-
 
 def drop_archive(database):
     """
@@ -1044,6 +1046,6 @@ def tables_to_create(s1=True, s2=True):
                 continue
             tables.append(eval(name).__table__)
     if len(tables) == 0:
-        print('ERROR, no tables found to create!')
+        log.info('ERROR, no tables found to create!')
 
     return tables
